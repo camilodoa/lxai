@@ -1,7 +1,7 @@
 # deep q networks
 
 An exploration of the use of spiking neural networks in reinforcement learning.
-A writeup is available [here](https://www.notion.so/camilonotes/Spiking-neural-networks-in-reinforcement-learning-b6824ef8ce394d749ef5193c4503c3fd).
+An overview of SNNs is available [here](https://www.notion.so/camilonotes/Spiking-neural-networks-in-reinforcement-learning-b6824ef8ce394d749ef5193c4503c3fd).
 
 ## installation
 If you're on Big Sur, you'll need to be running Python3.9.
@@ -32,7 +32,4 @@ export CPPFLAGS="-I/usr/local/opt/llvm/include"
 
 ## cartpole
 
-For this environment there are two different solutions.
-
-The first is @kkweon's solution to the CartPole-v0 environment with a replay
-buffer and epsilon-annealing (to stop exploring in the long run)
+Currently in this directory is @kkweon's solution to the CartPole-v0 environment with a replay buffer and epsilon-annealing (to stop exploring in the long run).
