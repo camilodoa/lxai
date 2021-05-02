@@ -1,6 +1,7 @@
 # deep q networks
 
 An exploration of the use of spiking neural networks in reinforcement learning.
+A writeup is available [here](https://www.notion.so/camilonotes/Spiking-neural-networks-in-reinforcement-learning-b6824ef8ce394d749ef5193c4503c3fd).
 
 ## installation
 If you're on Big Sur, you'll need to be running Python3.9.
