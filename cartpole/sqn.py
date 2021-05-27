@@ -4,9 +4,11 @@ SQN algorithm to solve CartPole-v0
 SQN in BindsNet
 """
 import argparse
+import torch
 from bindsnet.network import Network
 from bindsnet.network.nodes import Input, LIFNodes
 from bindsnet.network.topology import Connection
+from bindsnet.network.monitors import Monitor
 import gym
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -55,7 +57,9 @@ class SQN():
                 Q_value is 2-D tensor of shape (n, output_dim)
             hidden_dim (int): Hidden dimension in fc layer
         """
+        self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.network = Network()
+        self.time = int(self.network.dt)
 
         self.layer1 = Input(n=input_dim)
         self.network.add_layer(
@@ -67,9 +71,9 @@ class SQN():
             layer=self.layer2, name="layer2"
         )
 
-        self.final = LIFNodes(n=output_dim)
+        self.output = LIFNodes(n=output_dim)
         self.network.add_layer(
-            layer=self.final, name="final"
+            layer=self.output, name="output"
         )
 
         # First connection
@@ -91,19 +95,33 @@ class SQN():
             w=0.025 * (torch.eye(self.layer2.n) - 1) # Self-connecting small weights
         )
         self.network.add_connection(
-            connection=self.connection_layer2_layer2
+            connection=self.connection_layer2_layer2,
             source="layer2",
             target="layer2"
         )
 
         # Hidden layer connection to output
-        self.connection_layer2_final = Connection(
+        self.connection_layer2_output = Connection(
             source=self.layer2,
-            target=self.final,
-            w=0.05 + 0.1 * torch.randn(self.layer2.n, self.final.n) # Normal (0.05, 0.01) weights
+            target=self.output,
+            w=0.05 + 0.1 * torch.randn(self.layer2.n, self.output.n) # Normal (0.05, 0.01) weights
         )
         self.network.add_connection(
-            connection=self.connection_layer2_final,
+            connection=self.connection_layer2_output,
             source="layer2",
-            target="final"
+            target="output"
         )
+
+        # To record outputs
+        self.network.add_monitor(
+            Monitor(self.output, ["s"], time=self.time),
+            name="output_monitor"
+        )
+
+        self.spike_record = {
+            self.output: torch.zeros((self.time, output_dim)).to(
+                self.device
+            )
+        }
+
+model = SQN(12, 12, 12)
