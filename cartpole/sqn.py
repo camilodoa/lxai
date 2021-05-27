@@ -124,4 +124,8 @@ class SQN():
             )
         }
 
+    def run(self, inputs: Dict[str, torch.Tensor], time: int, reward: Union[float, torch.Tensor]) -> None:
+        return self.network.run(inputs=inputs, time=self.time, reward=reward)
+
+
 model = SQN(12, 12, 12)
