@@ -3,5 +3,5 @@ numpy
 torch
 bindsnet
 Pillow>=8.0
-gym==0.18.0
 pyglet==1.5.11
+gym==0.18.0
