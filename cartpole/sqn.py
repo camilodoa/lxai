@@ -38,7 +38,7 @@ parser.add_argument("--batch-size",
                     help="Mini-batch size")
 parser.add_argument("--hidden-dim",
                     type=int,
-                    default=12,
+                    default=100,
                     help="Hidden dimension")
 parser.add_argument("--capacity",
                     type=int,
@@ -56,7 +56,7 @@ FLAGS = parser.parse_args()
 
 
 class SQN(object):
-    def __init__(self, input_dim: int, output_dim: int, hidden_dim: int) -> None:
+    def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
         """DQN Network
         Args:
             input_dim (int): `state` dimension.
@@ -69,55 +69,56 @@ class SQN(object):
         self.network = Network(dt=1.0)
         self.time = int(self.network.dt)
 
-        self.layer1 = Input(n=input_dim)
+        self.input = Input(n=input_dim, shape=shape, traces=True)
         self.network.add_layer(
-            layer=self.layer1, name="layer1"
+            layer=self.input, name="Input"
         )
 
-        self.layer2 = LIFNodes(n=hidden_dim)
+        self.hidden = LIFNodes(n=hidden_dim, traces=True)
         self.network.add_layer(
-            layer=self.layer2, name="layer2"
+            layer=self.hidden, name="Hidden"
         )
 
-        self.output = LIFNodes(n=output_dim)
+        self.output = LIFNodes(n=output_dim, refrac=0, traces=True)
         self.network.add_layer(
-            layer=self.output, name="output"
+            layer=self.output, name="Output"
         )
 
         # First connection
-        self.connection_layer1_layer2 = Connection(
-            source=self.layer1,
-            target=self.layer2,
-            w=0.05 + 0.1 * torch.randn(self.layer1.n, self.layer2.n) # Normal (0.05, 0.01) weights
+        self.connection_input_hidden = Connection(
+            source=self.input,
+            target=self.hidden,
+            wmin=0,
+            wmax=1e-1
         )
         self.network.add_connection(
-            connection=self.connection_layer1_layer2,
-            source="layer1",
-            target="layer2"
+            connection=self.connection_input_hidden,
+            source="Input",
+            target="Hidden"
         )
 
         # Recurrent connection in hidden layer
-        self.connection_layer2_layer2 = Connection(
-            source=self.layer2,
-            target=self.layer2,
-            w=0.025 * (torch.eye(self.layer2.n) - 1) # Self-connecting small weights
+        self.connection_hidden_hidden= Connection(
+            source=self.hidden,
+            target=self.hidden,
+            # w=0.025 * (torch.eye(self.hidden.n) - 1) # Self-connecting small weights
         )
         self.network.add_connection(
-            connection=self.connection_layer2_layer2,
-            source="layer2",
-            target="layer2"
+            connection=self.connection_hidden_hidden,
+            source="Hidden",
+            target="Hidden"
         )
 
         # Hidden layer connection to output
-        self.connection_layer2_output = Connection(
-            source=self.layer2,
+        self.connection_hidden_output = Connection(
+            source=self.hidden,
             target=self.output,
-            w=0.05 + 0.1 * torch.randn(self.layer2.n, self.output.n) # Normal (0.05, 0.01) weights
+            wmin=0, wmax=1
         )
         self.network.add_connection(
-            connection=self.connection_layer2_output,
-            source="layer2",
-            target="output"
+            connection=self.connection_hidden_output,
+            source="Hidden",
+            target="Output"
         )
 
         self.inputs = [
@@ -133,12 +134,12 @@ class SQN(object):
         )
 
         self.spike_record = {
-            self.output: torch.zeros((self.time, output_dim)).to(
+            "Output": torch.zeros((self.time, output_dim)).to(
                 self.device
             )
         }
 
-    def run(self, inputs: dict[str, torch.Tensor], time: int, reward: [float, torch.Tensor]) -> None:
+    def run(self, inputs: dict[str, torch.Tensor], reward: [float, torch.Tensor]) -> None:
         return self.network.run(inputs=inputs, time=self.time, reward=reward)
 
 
@@ -191,21 +192,21 @@ class ReplayMemory(object):
         return len(self.memory)
 
 class Agent(object):
-    def __init__(self, input_dim: int, output_dim: int, hidden_dim: int) -> None:
+    def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
         """Agent class that chooses an action and trains
         Args:
             input_dim (int): input dimension
+            shape ([int]): shape of input
             output_dim (int): output dimension
             hidden_dim (int): hidden dimension
         """
-        self.sqn = SQN(input_dim, output_dim, hidden_dim)
+        self.sqn = SQN(input_dim, shape, output_dim, hidden_dim)
         self.input_dim = input_dim
         self.output_dim = output_dim
 
-    def get_action(self, states: np.ndarray, eps: float) -> int:
+    def get_action(self, eps: float) -> int:
         """Returns an action
         Args:
-            states(np.ndarray: 2-D tensor of shape (n, input_dim)
             eps (float): 𝜺-greedy for exploration
         Returns:
             int: action index
@@ -213,24 +214,23 @@ class Agent(object):
         if np.random.rand() < eps:
             return np.random.choice(self.output_dim)
         else:
-            scores = self.get_Q(states)
-            probabilities = torch.softmax(scores.data, dim=0)
+            scores = self.get_Q()
+            probabilities = torch.softmax(scores, dim=0)
             return torch.multinomial(probabilities, num_samples=1).item()
 
-    def get_Q(self, states: np.ndarray, output: str = "output") -> torch.FloatTensor:
+    def get_Q(self) -> torch.FloatTensor:
         """Returns `Q-value`
-        Args:
-            states (np.ndarray):2-D Tensor of shape (n, input_dim)
         Returns:
             torch.FloatTensor: 2-D Tensor of shape (n, output_dim)
         """
-        return torch.sum(self.sqn.spike_record[output], dim=0)
+        return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
 def play_episode(env: gym.Env,
                  agent: Agent,
                  # replay_memory: ReplayMemory,
                  eps: float,
-                 batch_size: int) -> int:
+                 # batch_size: int
+                 ) -> int:
     """Play an epsiode and train
     Args:
         env (gym.Env): gym environment (CartPole-v0)
@@ -241,31 +241,34 @@ def play_episode(env: gym.Env,
     Returns:
         int: reward earned in this episode
     """
-    s = env.reset()
+    env.reset()
     done = False
     total_reward = 0
 
     while not done:
-        # Run the agent for time t on state s
-        inputs = {k: s.repeat(agent.sqn.time, ) for k in agent.sqn.inputs}
-        agent.sqn.run(inputs=inputs, time=agent.sqn.time, reward=r)
-        # Update output spikes
-        if agent.sqn.output is not None:
-            agent.sqn.spike_record["output"] = (
-                agent.sqn.network.monitors["output"].get("s").float()
-            )
-
+        env.render()
         # Select an action
-        a = agent.get_action(s, eps)
+        a = agent.get_action(eps)
         # Update the state according to action a
         s2, r, done, info = env.step(a)
 
+        # Run the agent for time t on state s with reward r
+        s_shape = [1] * len(s2.shape[1:])
+        inputs = {k: s2.repeat(agent.sqn.time, *s_shape) for k in agent.sqn.inputs}
+        agent.sqn.run(inputs=inputs, reward=r)
+
+        # Update output spikes
+        if agent.sqn.output is not None:
+            agent.sqn.spike_record["Output"] = (
+                agent.sqn.network.monitors["output_monitor"].get("s").float()
+            )
+
         total_reward += r
-        s = s2
+
+    # Reset network variables
+    agent.sqn.network.reset_state_variables()
 
     return total_reward
-
-    return agent.train(Q_predict, Q_target)
 
 def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     """Returns input_dim & output_dim
@@ -307,11 +310,11 @@ def main():
         env = GymEnvironment(FLAGS.env)
         rewards = deque(maxlen=100)
         input_dim, output_dim = get_env_dim(env.env)
-        agent = Agent(input_dim, output_dim, FLAGS.hidden_dim)
+        agent = Agent(80 * 80, [1, 1, 80, 80], output_dim, FLAGS.hidden_dim)
 
         for i in range(FLAGS.n_episode):
             eps = epsilon_annealing(i, FLAGS.max_episode, FLAGS.min_eps)
-            r = play_episode(env, agent, eps, FLAGS.batch_size)
+            r = play_episode(env, agent, eps)
             print("[Episode: {:5}] Reward: {:5} 𝜺-greedy: {:5.2f}".format(i + 1, r, eps))
 
             rewards.append(r)
