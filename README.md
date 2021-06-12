@@ -33,3 +33,9 @@ export CPPFLAGS="-I/usr/local/opt/llvm/include"
 ## cartpole
 
 Currently in this directory is @kkweon's solution to the CartPole-v0 environment with a replay buffer and epsilon-annealing (to stop exploring in the long run).
+I'm working on an analogous solution with an SQN. 
+
+## breakout
+
+In this directory is the SQN solution to BreakoutDeterministic-v4, courtesy of BindsNet. 
+You'll also find a DQN solution to the env.

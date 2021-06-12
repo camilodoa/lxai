@@ -3,3 +3,5 @@ MUJOCO_LOG.TXT
 monitors/
 */monitors/
 .idea/
+__pycache__/
+*/__pycache__/

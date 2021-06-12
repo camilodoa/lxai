@@ -1,9 +1,5 @@
 """
-SQN algorithm to solve CartPole-v0, by @camilodoa
-
-**IN PROGRESS**
-Still needs configuration work between Gym's CartPole-v0 and bindsnet.
-
+SQN algorithm to solve CartPole-v0
 
 SQN in BindsNet
 """
@@ -18,13 +14,13 @@ from bindsnet.network.nodes import AbstractInput
 from bindsnet.learning import PostPre,WeightDependentPostPre, Hebbian, MSTDP, MSTDPET, Rmax
 from collections import deque
 import gym
-from env import GymEnvironment
+from bindsnet.environment import GymEnvironment
 from typing import Tuple
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--env",
                     type=str,
-                    default="CartPole-v0",
+                    default="BreakoutDeterministic-v4",
                     help="Gym environment name")
 parser.add_argument("--n-episode",
                     type=int,
@@ -203,8 +199,7 @@ def play_episode(env: gym.Env,
     total_reward = 0
 
     while not done:
-        img = env.render(mode='rgb_array')
-        print(img)
+        env.render()
         # Select an action
         a = agent.get_action(eps)
         # Update the state according to action a
