@@ -13,6 +13,8 @@ from collections import namedtuple
 import matplotlib.pyplot as plt
 from typing import List, Tuple
 import cv2
+from analysis import save_list
+
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--gamma",
@@ -354,13 +356,17 @@ def main():
 
             rewards.append(r)
 
+        name = "DQN-Linear-{}-{}".format(FLAGS.env, FLAGS.n_episode)
+
         fig, ax = plt.subplots()
         ax.plot(rewards)
 
         ax.set(xlabel='Episode', ylabel='Reward',
                title='DQN (Linear) performance on {}'.format(FLAGS.env))
-        fig.savefig("DQN-Linear-{}-{}.png".format(FLAGS.env, FLAGS.n_episode))
+        fig.savefig("{}.png".format(name))
         plt.show()
+
+        save_list(rewards, "{}.fli".format(name))
 
     finally:
         env.close()

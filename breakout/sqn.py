@@ -11,11 +11,12 @@ from bindsnet.network.nodes import Input, LIFNodes
 from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.nodes import AbstractInput
-from bindsnet.learning import PostPre,WeightDependentPostPre, Hebbian, MSTDP, MSTDPET, Rmax
+from bindsnet.learning import PostPre, WeightDependentPostPre, Hebbian, MSTDP, MSTDPET, Rmax
 import matplotlib.pyplot as plt
 import gym
 from bindsnet.environment import GymEnvironment
 from typing import Tuple
+from analysis import save_list
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--env",
@@ -56,6 +57,7 @@ rules = {
     "MSTDPET": MSTDPET,
     "Rmax": Rmax
 }
+
 
 class SQN(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
@@ -148,6 +150,7 @@ class SQN(object):
     def run(self, inputs: dict[str, torch.Tensor], reward: [float, torch.Tensor]) -> None:
         return self.network.run(inputs=inputs, time=self.time, reward=reward)
 
+
 class Agent(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
         """Agent class that chooses an action and trains
@@ -181,6 +184,7 @@ class Agent(object):
             torch.FloatTensor: 2-D Tensor of shape (n, output_dim)
         """
         return torch.sum(self.sqn.spike_record["Output"], dim=0)
+
 
 def play_episode(env: gym.Env,
                  agent: Agent,
@@ -223,6 +227,7 @@ def play_episode(env: gym.Env,
 
     return total_reward
 
+
 def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     """Returns input_dim & output_dim
     Args:
@@ -235,6 +240,7 @@ def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     output_dim = env.action_space.n
 
     return input_dim, output_dim
+
 
 def epsilon_annealing(epsiode: int, max_episode: int, min_eps: float) -> float:
     """Returns 𝜺-greedy
@@ -272,16 +278,21 @@ def main():
 
             rewards.append(r)
 
+        name = "SQN-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode)
+
         fig, ax = plt.subplots()
         ax.plot(rewards)
 
         ax.set(xlabel='Episode', ylabel='Reward',
                title='SQN performance with {} on {}'.format(FLAGS.update_rule, FLAGS.env))
-        fig.savefig("SQN-{}-{}-{}.png".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode))
+        fig.savefig("{}.png".format(name))
         plt.show()
+
+        save_list(rewards, "{}.fli".format(name))
 
     finally:
         env.close()
+
 
 if __name__ == '__main__':
     main()
