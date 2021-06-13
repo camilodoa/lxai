@@ -272,10 +272,12 @@ def main():
 
             rewards.append(r)
 
-        plt.plot(rewards)
-        plt.title('SQN performance with {} on {}'.format(FLAGS.update_rule, FLAGS.env))
-        plt.ylabel('Reward')
-        plt.xlabel('Episode')
+        fig, ax = plt.subplots()
+        ax.plot(rewards)
+
+        ax.set(xlabel='Episode', ylabel='Reward',
+               title='SQN performance with {} on {}'.format(FLAGS.update_rule, FLAGS.env))
+        fig.savefig("SQN-{}-{}-{}.png".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode))
         plt.show()
 
     finally:
