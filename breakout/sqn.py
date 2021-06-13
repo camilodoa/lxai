@@ -12,7 +12,7 @@ from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.nodes import AbstractInput
 from bindsnet.learning import PostPre,WeightDependentPostPre, Hebbian, MSTDP, MSTDPET, Rmax
-from collections import deque
+import matplotlib.pyplot as plt
 import gym
 from bindsnet.environment import GymEnvironment
 from typing import Tuple
@@ -261,7 +261,7 @@ def main():
     """
     try:
         env = GymEnvironment(FLAGS.env)
-        rewards = deque(maxlen=100)
+        rewards = []
         input_dim, output_dim = get_env_dim(env.env)
         agent = Agent(80 * 80, [1, 1, 80, 80], output_dim, FLAGS.hidden_dim)
 
@@ -272,11 +272,12 @@ def main():
 
             rewards.append(r)
 
-            if len(rewards) == rewards.maxlen:
+        plt.plot(rewards)
+        plt.title('SQN performance with {} on {}'.format(FLAGS.update_rule, FLAGS.env))
+        plt.ylabel('Reward')
+        plt.xlabel('Episode')
+        plt.show()
 
-                if np.mean(rewards) >= 200:
-                    print("Game cleared in {} games with {}".format(i + 1, np.mean(rewards)))
-                    break
     finally:
         env.close()
 

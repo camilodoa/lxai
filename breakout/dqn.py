@@ -10,10 +10,9 @@ import numpy as np
 import random
 import gym
 from collections import namedtuple
-from collections import deque
+import matplotlib.pyplot as plt
 from typing import List, Tuple
 import cv2
-
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--gamma",
@@ -72,7 +71,6 @@ class DQN(torch.nn.Module):
         #     torch.nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1),
         #     torch.nn.ReLU()
         # )
-
 
         self.layer2 = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, hidden_dim),
@@ -198,6 +196,7 @@ class Agent(object):
         Returns:
             torch.FloatTensor: 2-D Tensor of shape (n, output_dim)
         """
+        states = self._to_variable(states.reshape(-1, self.input_dim))
         self.dqn.train(mode=False)
         return self.dqn(states)
 
@@ -218,12 +217,13 @@ class Agent(object):
         self.optim.step()
         return loss
 
+
 def preprocess(states: np.ndarray):
     """Preprocesses gym state
             Args:
                 states (np.ndarray): 3-D ndarray of shape (W, H, C)
             Returns:
-                (Tensor): 1-D Tensor of shape (6400) that was preprocessed
+                (Tensor): 1-D Tensor of shape (6400)
             """
     # Crop
     states = states[34:194, 0:160, :]
@@ -246,16 +246,14 @@ def train_helper(agent: Agent, minibatch: List[Transition], gamma: float) -> flo
     Returns:
         float: Loss value
     """
-    print("minibatch", minibatch[0].state.shape)
     states = torch.stack([x.state for x in minibatch])
-    print("states shape: ", states.shape, states[0].shape)
     actions = np.array([x.action for x in minibatch])
     rewards = np.array([x.reward for x in minibatch])
     next_states = torch.stack([x.next_state for x in minibatch])
-
     Q_predict = agent.get_Q(states)
     Q_target = Q_predict.clone().data.numpy()
-    Q_target[np.arange(len(Q_target)), actions] = rewards + gamma * np.max(agent.get_Q(next_states).data.numpy(), axis=1)
+    Q_target[np.arange(len(Q_target)), actions] = rewards + gamma * np.max(agent.get_Q(next_states).data.numpy(),
+                                                                           axis=1)
     Q_target = agent._to_variable(Q_target)
 
     return agent.train(Q_predict, Q_target)
@@ -296,7 +294,6 @@ def play_episode(env: gym.Env,
         replay_memory.push(s, a, r, s2, done)
 
         if len(replay_memory) > batch_size:
-
             minibatch = replay_memory.pop(batch_size)
             train_helper(agent, minibatch, FLAGS.gamma)
 
@@ -345,9 +342,9 @@ def main():
     try:
         env = gym.make(FLAGS.env)
         env = gym.wrappers.Monitor(env, directory="monitors", force=True)
-        rewards = deque(maxlen=100)
+        rewards = []
         _, output_dim = get_env_dim(env)
-        agent = Agent(80*80, output_dim, FLAGS.hidden_dim)
+        agent = Agent(80 * 80, output_dim, FLAGS.hidden_dim)
         replay_memory = ReplayMemory(FLAGS.capacity)
 
         for i in range(FLAGS.n_episode):
@@ -357,11 +354,12 @@ def main():
 
             rewards.append(r)
 
-            if len(rewards) == rewards.maxlen:
+        plt.plot(rewards)
+        plt.title('DQN (Linear) performance on {}'.format(FLAGS.env))
+        plt.ylabel('Reward')
+        plt.xlabel('Episode')
+        plt.show()
 
-                if np.mean(rewards) >= 200:
-                    print("Game cleared in {} games with {}".format(i + 1, np.mean(rewards)))
-                    break
     finally:
         env.close()
 
