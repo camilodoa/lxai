@@ -1,5 +1,8 @@
-import torch
+"""
+Breakout example provided by BindsNet, slightly modified
 
+BindsNet RL pipeline
+"""
 from bindsnet.network import Network
 from bindsnet.pipeline import EnvironmentPipeline
 from bindsnet.encoding import bernoulli

@@ -1,7 +1,9 @@
 """
 SQN algorithm to solve CartPole-v0
 
-SQN in BindsNet
+Uniform SQN implementation
+
+@author: camilodoa
 """
 import argparse
 import torch
@@ -16,6 +18,9 @@ import matplotlib.pyplot as plt
 import gym
 from bindsnet.environment import GymEnvironment
 from typing import Tuple
+
+from torch import Tensor
+
 from analysis import save_list
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -27,17 +32,13 @@ parser.add_argument("--n-episode",
                     type=int,
                     default=1000,
                     help="Number of epsidoes to run")
-parser.add_argument("--batch-size",
-                    type=int,
-                    default=64,
-                    help="Mini-batch size")
 parser.add_argument("--hidden-dim",
                     type=int,
-                    default=100,
+                    default=200,
                     help="Hidden dimension")
 parser.add_argument("--max-episode",
                     type=int,
-                    default=50,
+                    default=200,
                     help="e-Greedy target episode (eps will be the lowest at this episode)")
 parser.add_argument("--min-eps",
                     type=float,
@@ -45,10 +46,11 @@ parser.add_argument("--min-eps",
                     help="Min epsilon")
 parser.add_argument("--update-rule",
                     type=str,
-                    default="PostPre",
+                    default="MSTDP",
                     help="Learning rule used to update weights")
 FLAGS = parser.parse_args()
 
+# Update rules
 rules = {
     "PostPre": PostPre,
     "WeightDependentPostPre": WeightDependentPostPre,
@@ -108,20 +110,20 @@ class SQN(object):
             target="Hidden"
         )
 
-        # Recurrent connection in hidden layer
-        # self.connection_hidden_hidden = Connection(
-        #     source=self.hidden,
-        #     target=self.hidden,
-        #     update_rule=self.learning_rule,
-        #     w=0.025 * (torch.eye(self.hidden.n) - 1)  # Self-connecting small weights
-        # )
-        # self.network.add_connection(
-        #     connection=self.connection_hidden_hidden,
-        #     source="Hidden",
-        #     target="Hidden",
-        # )
+        # Recurrent inhibitory connection in hidden layer
+        self.connection_hidden_hidden = Connection(
+            source=self.hidden,
+            target=self.hidden,
+            update_rule=self.learning_rule,
+            wmin=-1, wmax=0
+        )
+        self.network.add_connection(
+            connection=self.connection_hidden_hidden,
+            source="Hidden",
+            target="Hidden",
+        )
 
-        # Hidden layer connection to output
+        # Hidden layer to output
         self.connection_hidden_output = Connection(
             source=self.hidden,
             target=self.output,
@@ -178,16 +180,25 @@ class Agent(object):
             int: action index
         """
         if np.random.rand() < eps:
+            # Only have the network select left or right
+            if FLAGS.env == "BreakoutDeterministic-v4":
+                return np.random.choice(self.output_dim) + 1
+
             return np.random.choice(self.output_dim)
         else:
             scores = self.get_Q()
             probabilities = torch.softmax(scores, dim=0)
+
+            # Only have the network select left or right
+            if FLAGS.env == "BreakoutDeterministic-v4":
+                return torch.multinomial(probabilities, num_samples=1).item() + 1
+
             return torch.multinomial(probabilities, num_samples=1).item()
 
-    def get_Q(self) -> torch.FloatTensor:
+    def get_Q(self) -> Tensor:
         """Returns `Q-value` based on internal state
         Returns:
-            torch.FloatTensor: 2-D Tensor of shape (n, output_dim)
+            torch.Tensor: 2-D Tensor of shape (n, output_dim)
         """
         return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
@@ -211,17 +222,20 @@ def play_episode(env: gym.Env,
     total_reward = 0
 
     while not done:
-        env.render()
+        # env.render()
         # Select an action
         a = agent.get_action(eps)
         # Update the state according to action a
-        s2, r, done, info = env.step(a)
+        s, r, done, info = env.step(a)
+
+        # Tensor shape configuration
         if FLAGS.update_rule == 'MSTDP':
-            s2 = s2.flatten()
+            s = s.flatten()
+
+        s_shape = [1] * len(s.shape[1:])
 
         # Run the agent for time t on state s with reward r
-        s_shape = [1] * len(s2.shape[1:])
-        inputs = {k: s2.repeat(agent.sqn.time, *s_shape) for k in agent.sqn.inputs}
+        inputs = {k: s.repeat(agent.sqn.time, *s_shape) for k in agent.sqn.inputs}
         agent.sqn.run(inputs=inputs, reward=r)
 
         # Update output spikes
@@ -245,6 +259,11 @@ def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     """
     input_dim = env.observation_space.shape[0]
     output_dim = env.action_space.n
+
+    name = env.unwrapped.spec.id
+    if name == "BreakoutDeterministic-v4":
+        # Only choose left or right actions
+        output_dim = 3
 
     return input_dim, output_dim
 
@@ -285,7 +304,7 @@ def main(save: bool = True, plot: bool = False) -> None:
 
             rewards.append(r)
 
-        name = "SQN-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode)
+        name = "SQN-{}-{}-{}-3-actions".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode)
 
         if plot:
             fig, ax = plt.subplots()

@@ -2,6 +2,8 @@
 DQN algorithm that solves BreakoutDeterministic-v4
 
 DQN in PyTorch
+
+@author: @kkweon, @camilodoa
 """
 import argparse
 import torch
@@ -69,20 +71,12 @@ class DQN(torch.nn.Module):
             torch.nn.BatchNorm1d(hidden_dim),
             torch.nn.PReLU()
         )
-        # self.layer1 = torch.nn.Sequential(
-        #     torch.nn.Conv2d(in_channels=3, out_channels=16, kernel_size=3, stride=1),
-        #     torch.nn.ReLU()
-        # )
 
         self.layer2 = torch.nn.Sequential(
             torch.nn.Linear(hidden_dim, hidden_dim),
             torch.nn.BatchNorm1d(hidden_dim),
             torch.nn.PReLU()
         )
-        # self.layer2 = torch.nn.Sequential(
-        #     torch.nn.Linear(in_features=1024, out_features=hidden_dim),
-        #     torch.nn.ReLU()
-        # )
 
         self.final = torch.nn.Linear(hidden_dim, output_dim)
 

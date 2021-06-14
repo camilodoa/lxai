@@ -1,10 +1,17 @@
+"""
+ Helpful analysis and saving functions
+
+ @author: camilodoa
+"""
+
 from datetime import date
 import matplotlib.pyplot as plt
 import random
+import gym
 
 
 def save_list(arr: [float], path: str) -> None:
-    """"Saves a list of floats to file
+    """"Saves a list of floats to file in local experiments folder
     Args:
         arr ([float]): List to be saved
         path (str): Location of saved list
@@ -55,7 +62,23 @@ def compare(paths: [str], save=False) -> None:
     plt.show()
 
 
+def explore_actions(name: str = "BreakoutDeterministic-v4") -> [str]:
+    """"Prints a description for each action given the name of the Gym Env
+        Args:
+            name (str): Name of Gym Env to explore
+        Returns:
+            [string]: List of short action descriptions
+        """
+    env = gym.make(name)
+
+    meanings = env.unwrapped.get_action_meanings()
+    print(meanings)
+
+    return meanings
+
+
 if __name__ == '__main__':
+    # Initial unrefined run with a variety of learning rules
     run_10000_preliminary_results = [
         "DQN-Linear-BreakoutDeterministic-v4-10000.fli",
         "SQN-PostPre-BreakoutDeterministic-v4-10000.fli",
@@ -64,15 +87,17 @@ if __name__ == '__main__':
         "SQN-MSTDPET-BreakoutDeterministic-v4-10000.fli"
     ]
 
+    # Second run where voltage state was not reset before each episode
     run_1000_no_state_reset = [
         "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
         "SQN-MSTDPET-BreakoutDeterministic-v4-1000.fli"
     ]
 
-    run_1500_no_state_reset = [
-        "SQN-MSTDP-BreakoutDeterministic-v4-1500.fli",
-        "SQN-MSTDPET-BreakoutDeterministic-v4-1500.fli"
+    # Third run where connection weights were clamped to (-1, 1) and (0, 1) and state was reset before each episode
+    run_15000_no_state_reset = [
+        "DQN-Linear-BreakoutDeterministic-v4-15000.fli",
+        "SQN-MSTDP-BreakoutDeterministic-v4-15000.fli",
+        "SQN-MSTDPET-BreakoutDeterministic-v4-15000.fli"
     ]
 
-    compare(run_10000_preliminary_results)
-    compare(run_1000_no_state_reset)
+    compare(run_15000_no_state_reset)

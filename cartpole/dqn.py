@@ -1,9 +1,11 @@
 """
-DQN algorithm that solves CartPole-v0, by github.com/kkweon
+DQN algorithm that solves CartPole-v0
+
+DQN in PyTorch
 
 https://gym.openai.com/evaluations/eval_onwKGm96QkO9tJwdX7L0Gw/
 
-DQN in PyTorch
+@author: @kkweon
 """
 import argparse
 import torch
