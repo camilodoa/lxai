@@ -60,6 +60,37 @@ rules = {
     "Rmax": Rmax  # Didn't work with current configurations
 }
 
+# Florian 2007 parameters
+dt = 1.0  # ms
+
+# LIF neuron (Section 4.1)
+rest_lif = -70.0  # mV
+thresh_lif = -54.0  # mV
+reset_lif = rest_lif
+tau_lif = 20.0  # ms
+
+refrac_lif = 0.0  # ms
+
+# Learning rules (Section 4.1)
+tau_plus = 20.0  # ms
+tau_minus = 20.0  # ms
+tau_z = 25.0  # ms
+a_plus = 1.0
+a_minus = -1.0
+
+# Learning rules (Section 4.3)
+gamma_mstdp = 0.01  # mV
+gamma_mstdpet = 0.25  # mV
+
+# Network (Section 4.3)
+n_in = 2
+n_hidden = 20
+n_out = 1
+w_min_1 = -10.0  # mV
+w_max_1 = 10.0  # mV
+w_min_2 = 0.0  # mV
+w_max_2 = 10.0  # mV
+
 
 class SQN(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
@@ -86,12 +117,14 @@ class SQN(object):
             layer=self.input, name="Input"
         )
 
-        self.hidden = LIFNodes(n=hidden_dim, refrac=0, traces=True)
+        self.hidden = LIFNodes(n=hidden_dim, traces=True, refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
+                               reset=reset_lif, decay=tau_lif)
         self.network.add_layer(
             layer=self.hidden, name="Hidden"
         )
 
-        self.output = LIFNodes(n=output_dim, refrac=0, traces=True)
+        self.output = LIFNodes(n=output_dim, traces=True, refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
+                               reset=reset_lif, decay=tau_lif)
         self.network.add_layer(
             layer=self.output, name="Output"
         )
@@ -101,8 +134,9 @@ class SQN(object):
             source=self.input,
             target=self.hidden,
             update_rule=self.learning_rule,
-            wmin=-1,
-            wmax=1
+            wmin=w_min_1,
+            wmax=w_max_1,
+            nu=gamma_mstdp
         )
         self.network.add_connection(
             connection=self.connection_input_hidden,
@@ -111,24 +145,25 @@ class SQN(object):
         )
 
         # Recurrent inhibitory connection in hidden layer
-        self.connection_hidden_hidden = Connection(
-            source=self.hidden,
-            target=self.hidden,
-            update_rule=self.learning_rule,
-            wmin=-1, wmax=0
-        )
-        self.network.add_connection(
-            connection=self.connection_hidden_hidden,
-            source="Hidden",
-            target="Hidden",
-        )
+        # self.connection_hidden_hidden = Connection(
+        #     source=self.hidden,
+        #     target=self.hidden,
+        #     update_rule=self.learning_rule
+        # )
+        # self.network.add_connection(
+        #     connection=self.connection_hidden_hidden,
+        #     source="Hidden",
+        #     target="Hidden",
+        # )
 
         # Hidden layer to output
         self.connection_hidden_output = Connection(
             source=self.hidden,
             target=self.output,
             update_rule=self.learning_rule,
-            wmin=0, wmax=1
+            wmin=w_min_2,
+            wmax=w_max_2,
+            nu=gamma_mstdp
         )
         self.network.add_connection(
             connection=self.connection_hidden_output,
@@ -222,7 +257,7 @@ def play_episode(env: gym.Env,
     total_reward = 0
 
     while not done:
-        # env.render()
+        env.render()
         # Select an action
         a = agent.get_action(eps)
         # Update the state according to action a
