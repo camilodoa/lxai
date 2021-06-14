@@ -55,7 +55,7 @@ rules = {
     "Hebbian": Hebbian,
     "MSTDP": MSTDP,
     "MSTDPET": MSTDPET,
-    "Rmax": Rmax
+    "Rmax": Rmax  # Didn't work with current configurations
 }
 
 
@@ -71,15 +71,20 @@ class SQN(object):
         """
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.network = Network(dt=1.0)
-        self.learning_rule = rules.get(FLAGS.update_rule) if rules.get(FLAGS.update_rule) != None else PostPre
+        self.learning_rule = rules.get(FLAGS.update_rule) if rules.get(FLAGS.update_rule) is not None else PostPre
         self.time = int(self.network.dt)
 
-        self.input = Input(n=input_dim, shape=shape, traces=True)
+        # To solve tensor formatting issues
+        if FLAGS.update_rule == 'MSTDP':
+            self.input = Input(n=input_dim, traces=True)
+        else:
+            self.input = Input(n=input_dim, shape=shape, traces=True)
+
         self.network.add_layer(
             layer=self.input, name="Input"
         )
 
-        self.hidden = LIFNodes(n=hidden_dim, traces=True)
+        self.hidden = LIFNodes(n=hidden_dim, refrac=0, traces=True)
         self.network.add_layer(
             layer=self.hidden, name="Hidden"
         )
@@ -94,8 +99,8 @@ class SQN(object):
             source=self.input,
             target=self.hidden,
             update_rule=self.learning_rule,
-            wmin=0,
-            wmax=1e-1
+            wmin=-1,
+            wmax=1
         )
         self.network.add_connection(
             connection=self.connection_input_hidden,
@@ -104,11 +109,11 @@ class SQN(object):
         )
 
         # Recurrent connection in hidden layer
-        # self.connection_hidden_hidden= Connection(
+        # self.connection_hidden_hidden = Connection(
         #     source=self.hidden,
         #     target=self.hidden,
         #     update_rule=self.learning_rule,
-        #     # w=0.025 * (torch.eye(self.hidden.n) - 1) # Self-connecting small weights
+        #     w=0.025 * (torch.eye(self.hidden.n) - 1)  # Self-connecting small weights
         # )
         # self.network.add_connection(
         #     connection=self.connection_hidden_hidden,
@@ -148,6 +153,7 @@ class SQN(object):
         }
 
     def run(self, inputs: dict[str, torch.Tensor], reward: [float, torch.Tensor]) -> None:
+        self.network.train(mode=True)
         return self.network.run(inputs=inputs, time=self.time, reward=reward)
 
 
@@ -179,7 +185,7 @@ class Agent(object):
             return torch.multinomial(probabilities, num_samples=1).item()
 
     def get_Q(self) -> torch.FloatTensor:
-        """Returns `Q-value`
+        """Returns `Q-value` based on internal state
         Returns:
             torch.FloatTensor: 2-D Tensor of shape (n, output_dim)
         """
@@ -199,6 +205,8 @@ def play_episode(env: gym.Env,
         int: reward earned in this episode
     """
     env.reset()
+    agent.sqn.network.reset_state_variables()
+
     done = False
     total_reward = 0
 
@@ -208,6 +216,8 @@ def play_episode(env: gym.Env,
         a = agent.get_action(eps)
         # Update the state according to action a
         s2, r, done, info = env.step(a)
+        if FLAGS.update_rule == 'MSTDP':
+            s2 = s2.flatten()
 
         # Run the agent for time t on state s with reward r
         s_shape = [1] * len(s2.shape[1:])
@@ -221,9 +231,6 @@ def play_episode(env: gym.Env,
             )
 
         total_reward += r
-
-    # Reset network variables
-    agent.sqn.network.reset_state_variables()
 
     return total_reward
 
@@ -262,7 +269,7 @@ def epsilon_annealing(epsiode: int, max_episode: int, min_eps: float) -> float:
     return max(slope * epsiode + 1.0, min_eps)
 
 
-def main():
+def main(save: bool = True, plot: bool = False) -> None:
     """Main
     """
     try:
@@ -280,15 +287,16 @@ def main():
 
         name = "SQN-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode)
 
-        fig, ax = plt.subplots()
-        ax.plot(rewards)
+        if plot:
+            fig, ax = plt.subplots()
+            ax.plot(rewards)
 
-        ax.set(xlabel='Episode', ylabel='Reward',
-               title='SQN performance with {} on {}'.format(FLAGS.update_rule, FLAGS.env))
-        fig.savefig("{}.png".format(name))
-        plt.show()
+            ax.set(xlabel='Episode', ylabel='Reward',
+                   title='SQN performance with {} on {}'.format(FLAGS.update_rule, FLAGS.env))
+            plt.show()
 
-        save_list(rewards, "{}.fli".format(name))
+        if save:
+            save_list(rewards, "{}.fli".format(name))
 
     finally:
         env.close()

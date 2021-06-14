@@ -338,7 +338,7 @@ def epsilon_annealing(epsiode: int, max_episode: int, min_eps: float) -> float:
     return max(slope * epsiode + 1.0, min_eps)
 
 
-def main():
+def main(save: bool = True, plot: bool = False) -> None:
     """Main
     """
     try:
@@ -358,15 +358,16 @@ def main():
 
         name = "DQN-Linear-{}-{}".format(FLAGS.env, FLAGS.n_episode)
 
-        fig, ax = plt.subplots()
-        ax.plot(rewards)
+        if plot:
+            fig, ax = plt.subplots()
+            ax.plot(rewards)
 
-        ax.set(xlabel='Episode', ylabel='Reward',
-               title='DQN (Linear) performance on {}'.format(FLAGS.env))
-        fig.savefig("{}.png".format(name))
-        plt.show()
+            ax.set(xlabel='Episode', ylabel='Reward',
+                   title='DQN (Linear) performance on {}'.format(FLAGS.env))
+            plt.show()
 
-        save_list(rewards, "{}.fli".format(name))
+        if save:
+            save_list(rewards, "{}.fli".format(name))
 
     finally:
         env.close()
