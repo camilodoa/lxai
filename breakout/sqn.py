@@ -36,18 +36,14 @@ parser.add_argument("--hidden-dim",
                     type=int,
                     default=200,
                     help="Hidden dimension")
-parser.add_argument("--max-episode",
-                    type=int,
-                    default=200,
-                    help="e-Greedy target episode (eps will be the lowest at this episode)")
-parser.add_argument("--min-eps",
-                    type=float,
-                    default=0.01,
-                    help="Min epsilon")
 parser.add_argument("--update-rule",
                     type=str,
                     default="MSTDP",
                     help="Learning rule used to update weights")
+parser.add_argument("--gamma",
+                    type=float,
+                    default=0.01,
+                    help="Neuron learning rate")
 FLAGS = parser.parse_args()
 
 # Update rules
@@ -60,36 +56,36 @@ rules = {
     "Rmax": Rmax  # Didn't work with current configurations
 }
 
-# Florian 2007 parameters
-dt = 1.0  # ms
-
-# LIF neuron (Section 4.1)
-rest_lif = -70.0  # mV
-thresh_lif = -54.0  # mV
-reset_lif = rest_lif
-tau_lif = 20.0  # ms
-
-refrac_lif = 0.0  # ms
-
-# Learning rules (Section 4.1)
-tau_plus = 20.0  # ms
-tau_minus = 20.0  # ms
-tau_z = 25.0  # ms
-a_plus = 1.0
-a_minus = -1.0
-
-# Learning rules (Section 4.3)
-gamma_mstdp = 0.01  # mV
-gamma_mstdpet = 0.25  # mV
-
-# Network (Section 4.3)
-n_in = 2
-n_hidden = 20
-n_out = 1
-w_min_1 = -10.0  # mV
-w_max_1 = 10.0  # mV
-w_min_2 = 0.0  # mV
-w_max_2 = 10.0  # mV
+# # Florian 2007 parameters
+# dt = 1.0  # ms
+#
+# # LIF neuron (Section 4.1)
+# rest_lif = -70.0  # mV
+# thresh_lif = -54.0  # mV
+# reset_lif = rest_lif
+# tau_lif = 20.0  # ms
+#
+# refrac_lif = 0.0  # ms
+#
+# # Learning rules (Section 4.1)
+# tau_plus = 20.0  # ms
+# tau_minus = 20.0  # ms
+# tau_z = 25.0  # ms
+# a_plus = 1.0
+# a_minus = -1.0
+#
+# # Learning rules (Section 4.3)
+# gamma_mstdp = FLAGS.gamma  # mV, this was the parameter that really affected network performance, according to Florian
+# gamma_mstdpet = 0.25  # mV
+#
+# # Network (Section 4.3)
+# n_in = 2
+# n_hidden = 20
+# n_out = 1
+# w_min_1 = -10.0  # mV
+# w_max_1 = 10.0  # mV
+# w_min_2 = 0.0  # mV
+# w_max_2 = 10.0  # mV
 
 
 class SQN(object):
@@ -113,63 +109,91 @@ class SQN(object):
         else:
             self.input = Input(n=input_dim, shape=shape, traces=True)
 
-        self.network.add_layer(
-            layer=self.input, name="Input"
-        )
+        self.hidden = LIFNodes(n=hidden_dim, traces=True,
+                               # refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
+                               # reset=reset_lif, decay=tau_lif
+                               )
 
-        self.hidden = LIFNodes(n=hidden_dim, traces=True, refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
-                               reset=reset_lif, decay=tau_lif)
-        self.network.add_layer(
-            layer=self.hidden, name="Hidden"
-        )
-
-        self.output = LIFNodes(n=output_dim, traces=True, refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
-                               reset=reset_lif, decay=tau_lif)
-        self.network.add_layer(
-            layer=self.output, name="Output"
-        )
+        self.output = LIFNodes(n=output_dim, traces=True,
+                               # refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
+                               # reset=reset_lif, decay=tau_lif
+                               )
 
         # First connection
         self.connection_input_hidden = Connection(
             source=self.input,
             target=self.hidden,
             update_rule=self.learning_rule,
-            wmin=w_min_1,
-            wmax=w_max_1,
-            nu=gamma_mstdp
-        )
-        self.network.add_connection(
-            connection=self.connection_input_hidden,
-            source="Input",
-            target="Hidden"
+            wmin=0,
+            wmax=1,
+            nu=FLAGS.gamma
+            # wmin=w_min_1,
+            # wmax=w_max_1,
         )
 
         # Recurrent inhibitory connection in hidden layer
         # self.connection_hidden_hidden = Connection(
         #     source=self.hidden,
         #     target=self.hidden,
-        #     update_rule=self.learning_rule
+        #     update_rule=self.learning_rule,
+        #     wmin=-1,
+        #     wmax=0,
+        #     nu=FLAGS.gamma
         # )
+
+        # Hidden layer to Output
+        self.connection_hidden_output = Connection(
+            source=self.hidden,
+            target=self.output,
+            update_rule=self.learning_rule,
+            # wmin=w_min_2,
+            # wmax=w_max_2,
+            wmin=-1,
+            wmax=1,
+            # norm=0.5 * self.hidden.n,
+            nu=FLAGS.gamma
+        )
+
+        # Output recurrent connection
+        # self.connection_output_output = Connection(
+        #     source=self.output,
+        #     target=self.output,
+        #     update_rule=self.learning_rule,
+        #     wmin=w_min_1,
+        #     wmax=w_max_1,
+        #     nu=gamma_mstdp
+        # )
+
+        self.network.add_layer(
+            layer=self.input, name="Input"
+        )
+        self.network.add_layer(
+            layer=self.hidden, name="Hidden"
+        )
+        self.network.add_layer(
+            layer=self.output, name="Output"
+        )
+
+        self.network.add_connection(
+            connection=self.connection_input_hidden,
+            source="Input",
+            target="Hidden"
+        )
         # self.network.add_connection(
         #     connection=self.connection_hidden_hidden,
         #     source="Hidden",
         #     target="Hidden",
         # )
-
-        # Hidden layer to output
-        self.connection_hidden_output = Connection(
-            source=self.hidden,
-            target=self.output,
-            update_rule=self.learning_rule,
-            wmin=w_min_2,
-            wmax=w_max_2,
-            nu=gamma_mstdp
-        )
         self.network.add_connection(
             connection=self.connection_hidden_output,
             source="Hidden",
             target="Output"
         )
+        # self.network.add_connection(
+        #     connection=self.connection_output_output,
+        #     source="Output",
+        #     target="Output"
+        # )
 
         self.inputs = [
             name
@@ -189,9 +213,9 @@ class SQN(object):
             )
         }
 
-    def run(self, inputs: dict[str, torch.Tensor], reward: [float, torch.Tensor]) -> None:
+    def run(self, inputs: dict[str, torch.Tensor], reward: [float, torch.Tensor], **kwargs) -> None:
         self.network.train(mode=True)
-        return self.network.run(inputs=inputs, time=self.time, reward=reward)
+        return self.network.run(inputs=inputs, time=self.time, reward=reward, **kwargs)
 
 
 class Agent(object):
@@ -207,46 +231,39 @@ class Agent(object):
         self.input_dim = input_dim
         self.output_dim = output_dim
 
-    def get_action(self, eps: float) -> int:
+    def get_action(self) -> int:
         """Returns an action
-        Args:
-            eps (float): 𝜺-greedy for exploration
         Returns:
             int: action index
         """
-        if np.random.rand() < eps:
-            # Only have the network select left or right
-            if FLAGS.env == "BreakoutDeterministic-v4":
-                return np.random.choice(self.output_dim) + 1
+        scores = self.get_Q()
+        # probabilities = torch.softmax(scores, dim=0)
+        # return torch.multinomial(probabilities, num_samples=1).item()
 
-            return np.random.choice(self.output_dim)
-        else:
-            scores = self.get_Q()
-            probabilities = torch.softmax(scores, dim=0)
+        _, argmax = torch.max(torch.flatten(scores), dim=0)
+        # print(torch.flatten(scores), argmax.item())
 
-            # Only have the network select left or right
-            if FLAGS.env == "BreakoutDeterministic-v4":
-                return torch.multinomial(probabilities, num_samples=1).item() + 1
-
-            return torch.multinomial(probabilities, num_samples=1).item()
+        # if np.random.rand() < 0.2:
+        #     return np.random.choice(self.output_dim)
+        # else:
+        return argmax.item()
 
     def get_Q(self) -> Tensor:
         """Returns `Q-value` based on internal state
         Returns:
             torch.Tensor: 2-D Tensor of shape (n, output_dim)
         """
+        print(self.sqn.spike_record["Output"])
         return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
 
 def play_episode(env: gym.Env,
                  agent: Agent,
-                 eps: float,
                  ) -> int:
     """Play an epsiode and train
     Args:
         env (gym.Env): gym environment (CartPole-v0)
         agent (Agent): agent will train and get action
-        eps (float): 𝜺-greedy for exploration
     Returns:
         int: reward earned in this episode
     """
@@ -259,7 +276,7 @@ def play_episode(env: gym.Env,
     while not done:
         env.render()
         # Select an action
-        a = agent.get_action(eps)
+        a = agent.get_action()
         # Update the state according to action a
         s, r, done, info = env.step(a)
 
@@ -271,7 +288,11 @@ def play_episode(env: gym.Env,
 
         # Run the agent for time t on state s with reward r
         inputs = {k: s.repeat(agent.sqn.time, *s_shape) for k in agent.sqn.inputs}
-        agent.sqn.run(inputs=inputs, reward=r)
+        print(torch.sum(inputs["Input"]))
+        agent.sqn.run(inputs=inputs, reward=r,
+                      # a_plus=a_plus, a_minus=a_minus,
+                      # tc_plus=tau_plus, tc_minus=tau_minus
+                      )
 
         # Update output spikes
         if agent.sqn.output is not None:
@@ -295,32 +316,7 @@ def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     input_dim = env.observation_space.shape[0]
     output_dim = env.action_space.n
 
-    name = env.unwrapped.spec.id
-    if name == "BreakoutDeterministic-v4":
-        # Only choose left or right actions
-        output_dim = 3
-
     return input_dim, output_dim
-
-
-def epsilon_annealing(epsiode: int, max_episode: int, min_eps: float) -> float:
-    """Returns 𝜺-greedy
-    1.0---|\
-          | \
-          |  \
-    min_e +---+------->
-              |
-              max_episode
-    Args:
-        epsiode (int): Current episode (0<= episode)
-        max_episode (int): After max episode, 𝜺 will be `min_eps`
-        min_eps (float): 𝜺 will never go below this value
-    Returns:
-        float: 𝜺 value
-    """
-
-    slope = (min_eps - 1.0) / max_episode
-    return max(slope * epsiode + 1.0, min_eps)
 
 
 def main(save: bool = True, plot: bool = False) -> None:
@@ -333,13 +329,13 @@ def main(save: bool = True, plot: bool = False) -> None:
         agent = Agent(80 * 80, [1, 1, 80, 80], output_dim, FLAGS.hidden_dim)
 
         for i in range(FLAGS.n_episode):
-            eps = epsilon_annealing(i, FLAGS.max_episode, FLAGS.min_eps)
-            r = play_episode(env, agent, eps)
-            print("[Episode: {:5}] Reward: {:5} 𝜺-greedy: {:5.2f}".format(i + 1, r, eps))
+            r = play_episode(env, agent)
+            print("[Episode: {:5}] Reward: {:5}".format(i + 1, r))
 
             rewards.append(r)
 
-        name = "SQN-{}-{}-{}-3-actions".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode)
+        name = "SQN-{}-{}-{}-florian-gamma-{}-run-update".format(FLAGS.update_rule.replace(" ", ""),
+                                                                 FLAGS.env, FLAGS.n_episode, gamma_mstdp)
 
         if plot:
             fig, ax = plt.subplots()

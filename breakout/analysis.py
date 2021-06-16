@@ -82,22 +82,23 @@ if __name__ == '__main__':
     run_10000_preliminary_results = [
         "DQN-Linear-BreakoutDeterministic-v4-10000.fli",
         "SQN-PostPre-BreakoutDeterministic-v4-10000.fli",
-        "SQN-WeightDependentPostPre-BreakoutDeterministic-v4-10000.fli",
-        "SQN-Hebbian-BreakoutDeterministic-v4-10000.fli",
+        # "SQN-WeightDependentPostPre-BreakoutDeterministic-v4-10000.fli",
+        # "SQN-Hebbian-BreakoutDeterministic-v4-10000.fli",
         "SQN-MSTDPET-BreakoutDeterministic-v4-10000.fli"
     ]
 
     # Second run where voltage state was not reset before each episode
     run_1000_no_state_reset = [
+        "DQN-Linear-BreakoutDeterministic-v4-1000.fli",
         "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
         "SQN-MSTDPET-BreakoutDeterministic-v4-1000.fli"
     ]
 
-    # Third run where connection weights were clamped to (-1, 1) and (0, 1) and state was reset before each episode
-    run_15000_no_state_reset = [
-        "DQN-Linear-BreakoutDeterministic-v4-15000.fli",
-        "SQN-MSTDP-BreakoutDeterministic-v4-15000.fli",
-        "SQN-MSTDPET-BreakoutDeterministic-v4-15000.fli"
-    ]
+    # Third run where I re-implemented the LIF and connection parameters from Florian 2007 for MSTDP
+    # With different learning rates (gamma)
+    run_1000_florian = {
+        "DQN-Linear-BreakoutDeterministic-v4-1000.fli",
+        "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
+    }
 
-    compare(run_15000_no_state_reset)
+    compare(run_10000_preliminary_results)
