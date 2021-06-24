@@ -21,22 +21,27 @@ and some rudimentary analysis tools (`analysis.py`).
 
 If you're on Big Sur, you'll need to be running Python3.9.
 
-Install python dependencies: 
+Install python dependencies,
 
-```
+```bash
 pip3 install -r requirements.txt
 ```
 
-Install gym dependencies:
-```
+gym dependencies,
+
+```bash
 brew install ffmpeg
 brew install llvm
 brew install boost
 brew install hdf5
 ```
 
-And you'll need to update your .bashrc/.zshrc:
-```
+install and configure [mujoco-py](https://github.com/openai/mujoco-py),
+
+
+and update your .bashrc/.zshrc.
+
+```bash
 # Add this to your .bashrc/.zshrc:
 export PATH="/usr/local/opt/llvm/bin:$PATH"
 
