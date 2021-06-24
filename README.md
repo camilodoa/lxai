@@ -1,12 +1,33 @@
-# spiking q networks
+# reinforcement learning with spiking policy networks
 
-An exploration of the use of spiking neural networks in reinforcement learning.
-An overview of SNNs is available [here](https://www.notion.so/camilonotes/Spiking-neural-networks-in-reinforcement-learning-b6824ef8ce394d749ef5193c4503c3fd).
+![breakout](img/breakout.jpeg)
+
+An exploration of Spiking Policy Networks.
+
+[Here's](https://www.notion.so/camilonotes/Spiking-neural-networks-in-reinforcement-learning-b6824ef8ce394d749ef5193c4503c3fd) 
+a quick summary of what SNNs are, where they come from, and what they can do.
+
+And [here](https://www.notion.so/camilonotes/06-22-2021-Update-e2d08e9f8f714f44be27a2961bd44cf5) are my latest results 
+with the project.
+
+## description
+
+In `/breakout` is the spiking policy net solution to BreakoutDeterministic-v4 that I'm iteratively working on (`sqn.py`). 
+
+You'll also find a baseline DQN solution to the env (`dqn.py`), some BindsNet example code (`breakout.py`),
+and some rudimentary analysis tools (`analysis.py`).
 
 ## installation
+
 If you're on Big Sur, you'll need to be running Python3.9.
 
-You'll also need these dependencies:
+Install python dependencies: 
+
+```
+pip3 install -r requirements.txt
+```
+
+Install gym dependencies:
 ```
 brew install ffmpeg
 brew install llvm
@@ -29,12 +50,4 @@ export CXX1X="/usr/local/opt/llvm/bin/clang++"
 export LDFLAGS="-L/usr/local/opt/llvm/lib"
 export CPPFLAGS="-I/usr/local/opt/llvm/include"
 ```
-
-## breakout
-
-In this directory is the SQN policy net solution to BreakoutDeterministic-v4 that I'm working on (`sqn.py`). 
-
-You'll also find a baseline DQN solution to the env (`dqn.py`).
-
-There's also the BindsNet example code to solve BreakoutDeterministic-v4 in `breakout.py`.
 
