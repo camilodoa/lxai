@@ -33,7 +33,7 @@ parser.add_argument("--n-episode",
                     help="Number of epsidoes to run")
 parser.add_argument("--batch-size",
                     type=int,
-                    default=64,
+                    default=32,
                     help="Mini-batch size")
 parser.add_argument("--hidden-dim",
                     type=int,
