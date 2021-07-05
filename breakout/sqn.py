@@ -7,7 +7,6 @@ Uniform SQN implementation
 """
 import argparse
 import torch
-import numpy as np
 from bindsnet.network import Network
 from bindsnet.network.nodes import Input, LIFNodes
 from bindsnet.network.topology import Connection
@@ -18,9 +17,9 @@ import matplotlib.pyplot as plt
 import gym
 from bindsnet.environment import GymEnvironment
 from typing import Tuple
-
+from collections import deque
+from statistics import mean
 from torch import Tensor
-
 from analysis import save_list
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -55,6 +54,7 @@ rules = {
     "MSTDPET": MSTDPET,
     "Rmax": Rmax  # Didn't work with current configurations
 }
+
 
 # # Florian 2007 parameters
 # dt = 1.0  # ms
@@ -237,8 +237,8 @@ class Agent(object):
             int: action index
         """
         scores = self.get_Q()
-        # probabilities = torch.softmax(scores, dim=0)
-        # return torch.multinomial(probabilities, num_samples=1).item()
+        probabilities = torch.softmax(scores, dim=0)
+        return torch.multinomial(probabilities, num_samples=1).item()
 
         _, argmax = torch.max(torch.flatten(scores), dim=0)
         # print(torch.flatten(scores), argmax.item())
@@ -253,7 +253,7 @@ class Agent(object):
         Returns:
             torch.Tensor: 2-D Tensor of shape (n, output_dim)
         """
-        print(self.sqn.spike_record["Output"])
+        # print(self.sqn.spike_record["Output"])
         return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
 
@@ -274,7 +274,7 @@ def play_episode(env: gym.Env,
     total_reward = 0
 
     while not done:
-        env.render()
+        # env.render()
         # Select an action
         a = agent.get_action()
         # Update the state according to action a
@@ -288,7 +288,6 @@ def play_episode(env: gym.Env,
 
         # Run the agent for time t on state s with reward r
         inputs = {k: s.repeat(agent.sqn.time, *s_shape) for k in agent.sqn.inputs}
-        print(torch.sum(inputs["Input"]))
         agent.sqn.run(inputs=inputs, reward=r,
                       # a_plus=a_plus, a_minus=a_minus,
                       # tc_plus=tau_plus, tc_minus=tau_minus
@@ -324,7 +323,10 @@ def main(save: bool = True, plot: bool = False) -> None:
     """
     try:
         env = GymEnvironment(FLAGS.env)
-        rewards = []
+
+        average_rewards = []
+        q = deque(maxlen=100)
+
         input_dim, output_dim = get_env_dim(env.env)
         agent = Agent(80 * 80, [1, 1, 80, 80], output_dim, FLAGS.hidden_dim)
 
@@ -332,25 +334,27 @@ def main(save: bool = True, plot: bool = False) -> None:
             r = play_episode(env, agent)
             print("[Episode: {:5}] Reward: {:5}".format(i + 1, r))
 
-            rewards.append(r)
+            q.append(r)
+            if i % 100 == 0:
+                average_rewards.append(mean(q))
 
-        name = "SQN-{}-{}-{}-florian-gamma-{}-run-update".format(FLAGS.update_rule.replace(" ", ""),
-                                                                 FLAGS.env, FLAGS.n_episode, gamma_mstdp)
+        name = "SQN-slidingwindow-{}-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""),
+                                                                               FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
 
         if plot:
             fig, ax = plt.subplots()
-            ax.plot(rewards)
+            ax.plot(average_rewards)
 
             ax.set(xlabel='Episode', ylabel='Reward',
                    title='SQN performance with {} on {}'.format(FLAGS.update_rule, FLAGS.env))
             plt.show()
 
         if save:
-            save_list(rewards, "{}.fli".format(name))
+            save_list(average_rewards, "{}.fli".format(name))
 
     finally:
         env.close()
 
 
 if __name__ == '__main__':
-    main()
+    main(save=True, plot=True)

@@ -16,7 +16,8 @@ import matplotlib.pyplot as plt
 from typing import List, Tuple
 import cv2
 from analysis import save_list
-
+from collections import deque
+from statistics import mean
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--gamma",
@@ -338,7 +339,10 @@ def main(save: bool = True, plot: bool = False) -> None:
     try:
         env = gym.make(FLAGS.env)
         env = gym.wrappers.Monitor(env, directory="monitors", force=True)
-        rewards = []
+
+        average_rewards = []
+        q = deque(maxlen=100)
+
         _, output_dim = get_env_dim(env)
         agent = Agent(80 * 80, output_dim, FLAGS.hidden_dim)
         replay_memory = ReplayMemory(FLAGS.capacity)
@@ -348,24 +352,26 @@ def main(save: bool = True, plot: bool = False) -> None:
             r = play_episode(env, agent, replay_memory, eps, FLAGS.batch_size)
             print("[Episode: {:5}] Reward: {:5} 𝜺-greedy: {:5.2f}".format(i + 1, r, eps))
 
-            rewards.append(r)
+            q.append(r)
+            if i % 100 == 0:
+                average_rewards.append(mean(q))
 
-        name = "DQN-Linear-{}-{}".format(FLAGS.env, FLAGS.n_episode)
+        name = "DQN-linear-slidingwindow-{}-{}-{}".format(FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
 
         if plot:
             fig, ax = plt.subplots()
-            ax.plot(rewards)
+            ax.plot(average_rewards)
 
             ax.set(xlabel='Episode', ylabel='Reward',
                    title='DQN (Linear) performance on {}'.format(FLAGS.env))
             plt.show()
 
         if save:
-            save_list(rewards, "{}.fli".format(name))
+            save_list(average_rewards, "{}.fli".format(name))
 
     finally:
         env.close()
 
 
 if __name__ == '__main__':
-    main()
+    main(save=True, plot=True)
