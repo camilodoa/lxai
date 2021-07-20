@@ -106,7 +106,9 @@ if __name__ == '__main__':
         "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.99.fli",
         "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-0.01.fli",
         "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-0.5.fli",
-        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-1.25.fli"
+        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-1.25.fli",
+        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-10.0.fli",
+        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-100.0.fli"
     }
 
     compare(run_sliding_window)
