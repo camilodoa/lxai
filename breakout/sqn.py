@@ -127,42 +127,18 @@ class SQN(object):
             wmin=0,
             wmax=1,
             nu=FLAGS.gamma
-            # wmin=w_min_1,
-            # wmax=w_max_1,
         )
-
-        # Recurrent inhibitory connection in hidden layer
-        # self.connection_hidden_hidden = Connection(
-        #     source=self.hidden,
-        #     target=self.hidden,
-        #     update_rule=self.learning_rule,
-        #     wmin=-1,
-        #     wmax=0,
-        #     nu=FLAGS.gamma
-        # )
 
         # Hidden layer to Output
         self.connection_hidden_output = Connection(
             source=self.hidden,
             target=self.output,
             update_rule=self.learning_rule,
-            # wmin=w_min_2,
-            # wmax=w_max_2,
             wmin=-1,
             wmax=1,
             # norm=0.5 * self.hidden.n,
             nu=FLAGS.gamma
         )
-
-        # Output recurrent connection
-        # self.connection_output_output = Connection(
-        #     source=self.output,
-        #     target=self.output,
-        #     update_rule=self.learning_rule,
-        #     wmin=w_min_1,
-        #     wmax=w_max_1,
-        #     nu=gamma_mstdp
-        # )
 
         self.network.add_layer(
             layer=self.input, name="Input"
@@ -179,21 +155,11 @@ class SQN(object):
             source="Input",
             target="Hidden"
         )
-        # self.network.add_connection(
-        #     connection=self.connection_hidden_hidden,
-        #     source="Hidden",
-        #     target="Hidden",
-        # )
         self.network.add_connection(
             connection=self.connection_hidden_output,
             source="Hidden",
             target="Output"
         )
-        # self.network.add_connection(
-        #     connection=self.connection_output_output,
-        #     source="Output",
-        #     target="Output"
-        # )
 
         self.inputs = [
             name
@@ -237,6 +203,7 @@ class Agent(object):
             int: action index
         """
         scores = self.get_Q()
+        print(scores)
         probabilities = torch.softmax(scores, dim=0)
         return torch.multinomial(probabilities, num_samples=1).item()
 
@@ -338,8 +305,7 @@ def main(save: bool = True, plot: bool = False) -> None:
             if i % 100 == 0:
                 average_rewards.append(mean(q))
 
-        name = "SQN-slidingwindow-{}-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""),
-                                                                               FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
+        name = "SQN-{}-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
 
         if plot:
             fig, ax = plt.subplots()
@@ -357,4 +323,4 @@ def main(save: bool = True, plot: bool = False) -> None:
 
 
 if __name__ == '__main__':
-    main(save=True, plot=True)
+    main(save=False, plot=True)

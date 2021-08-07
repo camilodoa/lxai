@@ -78,37 +78,44 @@ def explore_actions(name: str = "BreakoutDeterministic-v4") -> [str]:
 
 
 if __name__ == '__main__':
+    ### Baseline
+    pre_06_22_2021 = "06-22-2021-update/"
     # Initial unrefined run with a variety of learning rules
     run_10000_preliminary_results = [
-        "DQN-Linear-BreakoutDeterministic-v4-10000.fli",
-        "SQN-PostPre-BreakoutDeterministic-v4-10000.fli",
-        # "SQN-WeightDependentPostPre-BreakoutDeterministic-v4-10000.fli",
-        # "SQN-Hebbian-BreakoutDeterministic-v4-10000.fli",
-        "SQN-MSTDPET-BreakoutDeterministic-v4-10000.fli"
+        pre_06_22_2021 + "DQN-Linear-BreakoutDeterministic-v4-10000.fli",
+        pre_06_22_2021 + "SQN-PostPre-BreakoutDeterministic-v4-10000.fli",
+        # pre_06_22_2021 + "SQN-WeightDependentPostPre-BreakoutDeterministic-v4-10000.fli",
+        # pre_06_22_2021 + "SQN-Hebbian-BreakoutDeterministic-v4-10000.fli",
+        pre_06_22_2021 + "SQN-MSTDPET-BreakoutDeterministic-v4-10000.fli"
     ]
 
     # Second run where voltage state was not reset before each episode
     run_1000_no_state_reset = [
-        "DQN-Linear-BreakoutDeterministic-v4-1000.fli",
-        "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
-        "SQN-MSTDPET-BreakoutDeterministic-v4-1000.fli"
+        pre_06_22_2021 + "DQN-Linear-BreakoutDeterministic-v4-1000.fli",
+        pre_06_22_2021 + "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
+        pre_06_22_2021 + "SQN-MSTDPET-BreakoutDeterministic-v4-1000.fli"
     ]
 
     # Third run where I re-implemented the LIF and connection parameters from Florian 2007 for MSTDP
     # With different learning rates (gamma)
     run_1000_florian = {
-        "DQN-Linear-BreakoutDeterministic-v4-1000.fli",
-        "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
+        pre_06_22_2021 + "DQN-Linear-BreakoutDeterministic-v4-1000.fli",
+        pre_06_22_2021 + "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
     }
 
     run_sliding_window = {
-        "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.5.fli",
-        "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.99.fli",
-        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-0.01.fli",
-        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-0.5.fli",
-        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-1.25.fli",
-        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-10.0.fli",
-        "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-100.0.fli"
+        pre_06_22_2021 + "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.5.fli",
+        pre_06_22_2021 + "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.99.fli",
+        pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-0.01.fli",
+        pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-0.5.fli",
+        pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-1.25.fli",
+        pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-10.0.fli",
+        pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-100.0.fli"
     }
 
-    compare(run_sliding_window)
+    # Hidden layer normalization
+    run_100_MSTDP = {
+        "SQN-MSTDP-BreakoutDeterministic-v4-100-0.1.fli"
+    }
+
+    compare(run_100_MSTDP)
