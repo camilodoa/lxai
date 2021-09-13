@@ -83,10 +83,6 @@ class DQN(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Returns a Q_value
-        Args:
-            x (torch.Tensor): `State` 2-D tensor of shape (n, input_dim)
-        Returns:
-            torch.Tensor: Q_value, 2-D tensor of shape (n, output_dim)
         """
         x = self.layer1(x)
         x = self.layer2(x)
@@ -117,12 +113,6 @@ class ReplayMemory(object):
              next_state: np.ndarray,
              done: bool) -> None:
         """Creates `Transition` and insert
-        Args:
-            state (np.ndarray): 1-D tensor of shape (input_dim,)
-            action (int): action index (0 <= action < output_dim)
-            reward (int): reward value
-            next_state (np.ndarray): 1-D tensor of shape (input_dim,)
-            done (bool): whether this state was last step
         """
         if len(self) < self.capacity:
             self.memory.append(None)
@@ -132,11 +122,7 @@ class ReplayMemory(object):
         self.cursor = (self.cursor + 1) % self.capacity
 
     def pop(self, batch_size: int) -> List[Transition]:
-        """Returns a minibatch of `Transition` randomly
-        Args:
-            batch_size (int): Size of mini-bach
-        Returns:
-            List[Transition]: Minibatch of `Transition`
+        """Returns a randomly sampled minibatch
         """
         return random.sample(self.memory, batch_size)
 
@@ -148,11 +134,7 @@ class ReplayMemory(object):
 class Agent(object):
 
     def __init__(self, input_dim: int, output_dim: int, hidden_dim: int) -> None:
-        """Agent class that choose action and train
-        Args:
-            input_dim (int): input dimension
-            output_dim (int): output dimension
-            hidden_dim (int): hidden dimension
+        """Agent class
         """
         self.dqn = DQN(input_dim, output_dim, hidden_dim)
         self.input_dim = input_dim
@@ -163,20 +145,11 @@ class Agent(object):
 
     def _to_variable(self, x: np.ndarray) -> torch.Tensor:
         """torch.Variable syntax helper
-        Args:
-            x (np.ndarray): 2-D tensor of shape (n, input_dim)
-        Returns:
-            torch.Tensor: torch variable
         """
         return torch.autograd.Variable(torch.Tensor(x))
 
     def get_action(self, states: np.ndarray, eps: float) -> int:
         """Returns an action
-        Args:
-            states (np.ndarray): 2-D tensor of shape (n, input_dim)
-            eps (float): 𝜺-greedy for exploration
-        Returns:
-            int: action index
         """
         if np.random.rand() < eps:
             return np.random.choice(self.output_dim)
@@ -188,10 +161,6 @@ class Agent(object):
 
     def get_Q(self, states: np.ndarray) -> torch.FloatTensor:
         """Returns `Q-value`
-        Args:
-            states (np.ndarray): 2-D Tensor of shape (n, input_dim)
-        Returns:
-            torch.FloatTensor: 2-D Tensor of shape (n, output_dim)
         """
         states = self._to_variable(states.reshape(-1, self.input_dim))
         self.dqn.train(mode=False)
@@ -199,13 +168,6 @@ class Agent(object):
 
     def train(self, Q_pred: torch.FloatTensor, Q_true: torch.FloatTensor) -> float:
         """Computes `loss` and backpropagation
-        Args:
-            Q_pred (torch.FloatTensor): Predicted value by the network,
-                2-D Tensor of shape(n, output_dim)
-            Q_true (torch.FloatTensor): Target value obtained from the game,
-                2-D Tensor of shape(n, output_dim)
-        Returns:
-            float: loss value
         """
         self.dqn.train(mode=True)
         self.optim.zero_grad()
@@ -217,11 +179,7 @@ class Agent(object):
 
 def preprocess(states: np.ndarray):
     """Preprocesses gym state
-            Args:
-                states (np.ndarray): 3-D ndarray of shape (W, H, C)
-            Returns:
-                (Tensor): 1-D Tensor of shape (6400)
-            """
+    """
     # Crop
     states = states[34:194, 0:160, :]
     # Convert to grayscale
@@ -235,13 +193,7 @@ def preprocess(states: np.ndarray):
 
 
 def train_helper(agent: Agent, minibatch: List[Transition], gamma: float) -> float:
-    """Prepare minibatch and train them
-    Args:
-        agent (Agent): Agent has `train(Q_pred, Q_true)` method
-        minibatch (List[Transition]): Minibatch of `Transition`
-        gamma (float): Discount rate of Q_target
-    Returns:
-        float: Loss value
+    """Prepare minibatch and train on it
     """
     states = torch.stack([x.state for x in minibatch])
     actions = np.array([x.action for x in minibatch])
@@ -262,14 +214,6 @@ def play_episode(env: gym.Env,
                  eps: float,
                  batch_size: int) -> int:
     """Play an epsiode and train
-    Args:
-        env (gym.Env): gym environment (CartPole-v0)
-        agent (Agent): agent will train and get action
-        replay_memory (ReplayMemory): trajectory is saved here
-        eps (float): 𝜺-greedy for exploration
-        batch_size (int): batch size
-    Returns:
-        int: reward earned in this episode
     """
     s = env.reset()
     s = preprocess(s)
@@ -301,11 +245,6 @@ def play_episode(env: gym.Env,
 
 def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     """Returns input_dim & output_dim
-    Args:
-        env (gym.Env): gym Environment (CartPole-v0)
-    Returns:
-        int: input_dim
-        int: output_dim
     """
     input_dim = env.observation_space.shape
     output_dim = env.action_space.n
@@ -315,18 +254,6 @@ def get_env_dim(env: gym.Env) -> Tuple[int, int]:
 
 def epsilon_annealing(epsiode: int, max_episode: int, min_eps: float) -> float:
     """Returns 𝜺-greedy
-    1.0---|\
-          | \
-          |  \
-    min_e +---+------->
-              |
-              max_episode
-    Args:
-        epsiode (int): Current episode (0<= episode)
-        max_episode (int): After max episode, 𝜺 will be `min_eps`
-        min_eps (float): 𝜺 will never go below this value
-    Returns:
-        float: 𝜺 value
     """
 
     slope = (min_eps - 1.0) / max_episode
