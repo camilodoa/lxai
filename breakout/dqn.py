@@ -294,7 +294,7 @@ def main(save: bool = True, plot: bool = False) -> None:
             if i % 100 == 0:
                 average_rewards.append(mean(q))
 
-        name = "DQN-linear-slidingwindow-{}-{}-{}-{}-{}-{}".format(FLAGS.env, FLAGS.n_episode, FLAGS.gamma, "dropout", "conv", FLAGS.hidden_dim)
+        name = "DQN-cnn-{}-{}-{}".format(FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
 
         if plot:
             fig, ax = plt.subplots()
