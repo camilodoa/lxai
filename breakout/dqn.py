@@ -6,6 +6,8 @@ DQN in PyTorch
 @author: @kkweon, @camilodoa
 """
 import argparse
+
+import cv2
 import torch
 import torch.nn
 import numpy as np
@@ -55,32 +57,24 @@ FLAGS = parser.parse_args()
 
 
 class DQN(torch.nn.Module):
-    def __init__(self, input_shape: int, output_dim: int, hidden_dim: int, batch_size: int) -> None:
+    def __init__(self, input_shape: [int], output_dim: int, hidden_dim: int, batch_size: int) -> None:
         """DQN Network
-        Args:
-            input_shape (int, int, int): `state` dimension.
-                `state` is 2-D tensor of shape (n, input_dim)
-            output_dim (int): Number of actions.
-                Q_value is 2-D tensor of shape (n, output_dim)
-            hidden_dim (int): Hidden dimension in fc layer
         """
         super(DQN, self).__init__()
         w, h, c = input_shape
         kernel_size = 3
         padding = 1
         stride = 1
-        out_channels = 32
+        out_channels = 3
 
         self.layer1 = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=3, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
+            torch.nn.Conv2d(in_channels=1, out_channels=out_channels, kernel_size=kernel_size, stride=stride, padding=padding),
             torch.nn.ReLU(),
-            torch.nn.Dropout(0.25),
-            torch.nn.AvgPool2d(kernel_size=kernel_size),
             torch.nn.Flatten()
         )
 
         self.layer2 = torch.nn.Sequential(
-            torch.nn.Linear(89888, hidden_dim),
+            torch.nn.Linear(19200, hidden_dim),
             torch.nn.ReLU(),
             torch.nn.Dropout(0.25)
         )
@@ -92,10 +86,6 @@ class DQN(torch.nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Returns a Q_value
-        Args:
-            x (torch.Tensor): `State` 2-D tensor of shape (n, input_dim)
-        Returns:
-            torch.Tensor: Q_value, 2-D tensor of shape (n, output_dim)
         """
         x = self.layer1(x)
         x = self.layer2(x)
@@ -112,8 +102,6 @@ class ReplayMemory(object):
 
     def __init__(self, capacity: int) -> None:
         """Replay memory class
-        Args:
-            capacity (int): Max size of this memory
         """
         self.capacity = capacity
         self.cursor = 0
@@ -126,12 +114,6 @@ class ReplayMemory(object):
              next_state: np.ndarray,
              done: bool) -> None:
         """Creates `Transition` and insert
-        Args:
-            state (np.ndarray): 1-D tensor of shape (input_dim,)
-            action (int): action index (0 <= action < output_dim)
-            reward (int): reward value
-            next_state (np.ndarray): 1-D tensor of shape (input_dim,)
-            done (bool): whether this state was last step
         """
         if len(self) < self.capacity:
             self.memory.append(None)
@@ -141,11 +123,7 @@ class ReplayMemory(object):
         self.cursor = (self.cursor + 1) % self.capacity
 
     def pop(self, batch_size: int) -> List[Transition]:
-        """Returns a minibatch of `Transition` randomly
-        Args:
-            batch_size (int): Size of mini-bach
-        Returns:
-            List[Transition]: Minibatch of `Transition`
+        """Returns a randomly sampled minibatch
         """
         return random.sample(self.memory, batch_size)
 
@@ -156,12 +134,8 @@ class ReplayMemory(object):
 
 class Agent(object):
 
-    def __init__(self, input_shape: int, output_dim: int, hidden_dim: int, batch_size: int) -> None:
+    def __init__(self, input_shape: [int], output_dim: int, hidden_dim: int, batch_size: int) -> None:
         """Agent class
-        Args:
-            input_shape (int, int, int): input shape
-            output_dim (int): output dimension
-            hidden_dim (int): hidden dimension
         """
         self.dqn = DQN(input_shape, output_dim, hidden_dim, batch_size)
         self.input_dim = input_shape
@@ -172,20 +146,11 @@ class Agent(object):
 
     def _to_variable(self, x: np.ndarray) -> torch.Tensor:
         """torch.Variable syntax helper
-        Args:
-            x (np.ndarray): 2-D tensor of shape (n, input_dim)
-        Returns:
-            torch.Tensor: torch variable
         """
         return torch.autograd.Variable(torch.Tensor(x))
 
     def get_action(self, states: np.ndarray, eps: float) -> int:
         """Returns an action
-        Args:
-            states (np.ndarray): 2-D tensor of shape (n, input_dim)
-            eps (float): 𝜺-greedy for exploration
-        Returns:
-            int: action index
         """
         if np.random.rand() < eps:
             return np.random.choice(self.output_dim)
@@ -216,32 +181,23 @@ class Agent(object):
 
 def preprocess(states: np.ndarray):
     """Preprocesses gym state
-            Args:
-                states (np.ndarray): 3-D ndarray of shape (W, H, C)
-            Returns:
-                (Tensor): 1-D Tensor of shape (6400)
-            """
+    """
     # Crop
     states = states[34:194, 0:160, :]
+
     # Convert to grayscale
-    # states = cv2.cvtColor(states, cv2.COLOR_RGB2GRAY)
+    states = cv2.cvtColor(states, cv2.COLOR_RGB2GRAY)
+
     # Subsample to 80x80
-    # states = cv2.resize(states, (80, 80))
-    # states = cv2.threshold(states, 0, 1, cv2.THRESH_BINARY)[1]
-    # states = torch.from_numpy(states).float()
-    # states = torch.flatten(states)
-    states = states.reshape(states.shape[2], states.shape[0], states.shape[1])
+    states = cv2.resize(states, (80, 80))
+    states = cv2.threshold(states, 0, 1, cv2.THRESH_BINARY)[1]
+
+    states = states.reshape(1, states.shape[0], states.shape[1])
     return states
 
 
 def train_helper(agent: Agent, minibatch: List[Transition], gamma: float) -> float:
-    """Prepare minibatch and train them
-    Args:
-        agent (Agent): Agent has `train(Q_pred, Q_true)` method
-        minibatch (List[Transition]): Minibatch of `Transition`
-        gamma (float): Discount rate of Q_target
-    Returns:
-        float: Loss value
+    """ Train on minibatch data
     """
     states = np.array([x.state for x in minibatch])
     actions = np.array([x.action for x in minibatch])
@@ -261,15 +217,7 @@ def play_episode(env: gym.Env,
                  replay_memory: ReplayMemory,
                  eps: float,
                  batch_size: int) -> int:
-    """Play an epsiode and train
-    Args:
-        env (gym.Env): gym environment (CartPole-v0)
-        agent (Agent): agent will train and get action
-        replay_memory (ReplayMemory): trajectory is saved here
-        eps (float): 𝜺-greedy for exploration
-        batch_size (int): batch size
-    Returns:
-        int: reward earned in this episode
+    """Play an episode
     """
     s = env.reset()
     s = preprocess(s)
@@ -301,11 +249,6 @@ def play_episode(env: gym.Env,
 
 def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     """Returns input_dim & output_dim
-    Args:
-        env (gym.Env): gym Environment (CartPole-v0)
-    Returns:
-        int: input_dim
-        int: output_dim
     """
     input_dim = env.observation_space.shape
     output_dim = env.action_space.n
@@ -314,19 +257,13 @@ def get_env_dim(env: gym.Env) -> Tuple[int, int]:
 
 
 def epsilon_annealing(epsiode: int, max_episode: int, min_eps: float) -> float:
-    """Returns 𝜺-greedy
+    """Returns 𝜺 for 𝜺-annealing
     1.0---|\
           | \
           |  \
     min_e +---+------->
               |
               max_episode
-    Args:
-        epsiode (int): Current episode (0<= episode)
-        max_episode (int): After max episode, 𝜺 will be `min_eps`
-        min_eps (float): 𝜺 will never go below this value
-    Returns:
-        float: 𝜺 value
     """
 
     slope = (min_eps - 1.0) / max_episode
@@ -345,7 +282,7 @@ def main(save: bool = True, plot: bool = False) -> None:
 
         input_dim, output_dim = get_env_dim(env)
 
-        agent = Agent((160, 160, 3) , output_dim, FLAGS.hidden_dim, FLAGS.batch_size)
+        agent = Agent((80, 80, 1) , output_dim, FLAGS.hidden_dim, FLAGS.batch_size)
         replay_memory = ReplayMemory(FLAGS.capacity)
 
         for i in range(FLAGS.n_episode):
