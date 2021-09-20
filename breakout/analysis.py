@@ -113,9 +113,13 @@ if __name__ == '__main__':
         pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-100.0.fli"
     }
 
-    # Hidden layer normalization
+    # CNN vs linear
     run_100_MSTDP = {
-        "SQN-MSTDP-BreakoutDeterministic-v4-100-0.1.fli"
+        "DQN-cnn-BreakoutDeterministic-v4-10000-0.99.fli",
+        pre_06_22_2021 + "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.99.fli",
+        "DQN-cnn-BreakoutDeterministic-v4-10000-0.99-reward_clamping.fli",
+        "DQN-cnn-BreakoutDeterministic-v4-1000-0.99-reward_clamping.fli",
+        "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_1.fli"
     }
 
     compare(run_100_MSTDP)

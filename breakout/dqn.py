@@ -231,6 +231,7 @@ def play_episode(env: gym.Env,
 
         # Preprocessing step
         s2 = preprocess(s2)
+        r = clip_reward(r)
 
         total_reward += r
 
@@ -269,6 +270,15 @@ def epsilon_annealing(epsiode: int, max_episode: int, min_eps: float) -> float:
     slope = (min_eps - 1.0) / max_episode
     return max(slope * epsiode + 1.0, min_eps)
 
+def clip_reward(reward):
+    """Clip reward so that it's in [-1, 1]
+    """
+    if reward < -1:
+        reward = -1
+    elif reward > 1:
+        reward = 1
+    return reward
+
 
 def main(save: bool = True, plot: bool = False) -> None:
     """Main
@@ -294,14 +304,14 @@ def main(save: bool = True, plot: bool = False) -> None:
             if i % 100 == 0:
                 average_rewards.append(mean(q))
 
-        name = "DQN-cnn-{}-{}-{}".format(FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
+        name = "DQN-cnn-{}-{}-{}-reward_clamping".format(FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
 
         if plot:
             fig, ax = plt.subplots()
             ax.plot(average_rewards)
 
             ax.set(xlabel='Episode', ylabel='Reward',
-                   title='DQN (Linear) performance on {}'.format(FLAGS.env))
+                   title='DQN (CNN) performance on {}'.format(FLAGS.env))
             plt.show()
 
         if save:
