@@ -1,5 +1,5 @@
 """
-DQN algorithm that solves BreakoutDeterministic-v4
+CNN DQN algorithm that solves BreakoutDeterministic-v4
 
 DQN in PyTorch
 
