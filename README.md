@@ -14,7 +14,7 @@ with the project.
 
 In `/breakout` is the spiking policy net solution to BreakoutDeterministic-v4 that I'm iteratively working on (`sqn.py`). 
 
-You'll also find a baseline DQN solution to the env (`dqn.py`), some BindsNet example code (`breakout.py`),
+You'll also find a baseline CNN DQN solution to the env (`dqn.py`), a linear DQN solution, some BindsNet example code (`breakout.py`),
 and some rudimentary analysis tools (`analysis.py`).
 
 ## installation
