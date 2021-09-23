@@ -52,7 +52,7 @@ def compare(paths: [str], save=False) -> None:
         ax.plot(list, color=color, label=path[:-4])
         lists.append(list)
 
-    ax.set(xlabel='Episode', ylabel='Reward',
+    ax.set(xlabel='100 Episode Average', ylabel='Reward',
            title='Reward over Episodes')
     ax.legend()
     ax.set_ylim([0, 30])
@@ -98,12 +98,12 @@ if __name__ == '__main__':
 
     # Third run where I re-implemented the LIF and connection parameters from Florian 2007 for MSTDP
     # With different learning rates (gamma)
-    run_1000_florian = {
+    run_1000_florian = [
         pre_06_22_2021 + "DQN-Linear-BreakoutDeterministic-v4-1000.fli",
         pre_06_22_2021 + "SQN-MSTDP-BreakoutDeterministic-v4-1000.fli",
-    }
+    ]
 
-    run_sliding_window = {
+    run_sliding_window = [
         pre_06_22_2021 + "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.5.fli",
         pre_06_22_2021 + "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.99.fli",
         pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-0.01.fli",
@@ -111,15 +111,16 @@ if __name__ == '__main__':
         pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-1.25.fli",
         pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-10.0.fli",
         pre_06_22_2021 + "SQN-slidingwindow-MSTDP-BreakoutDeterministic-v4-8000-100.0.fli"
-    }
+    ]
 
     # CNN vs linear
-    run_100_MSTDP = {
-        "DQN-cnn-BreakoutDeterministic-v4-10000-0.99.fli",
+    run_100_MSTDP = [
+        # "DQN-cnn-BreakoutDeterministic-v4-10000-0.99.fli",
         pre_06_22_2021 + "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.99.fli",
-        "DQN-cnn-BreakoutDeterministic-v4-10000-0.99-reward_clamping.fli",
-        "DQN-cnn-BreakoutDeterministic-v4-1000-0.99-reward_clamping.fli",
-        "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_1.fli"
-    }
+        "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_1.fli",
+        "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_2.fli",
+        "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping.fli",
+        "DQN-cnn-BreakoutDeterministic-v4-10000-0.99-reward_clamping.fli"
+    ]
 
     compare(run_100_MSTDP)

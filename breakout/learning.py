@@ -123,10 +123,10 @@ class NoOp(LearningRule):
 
 
 
-class MSTDP(LearningRule):
+class HMSTDP(LearningRule):
     # language=rst
     """
-    Reward-modulated STDP. Adapted from `(Florian 2007)
+    Heterogeneous Reward-modulated STDP. Built upon the MSTDP algorithm from `(Florian 2007)
     <https://florian.io/papers/2007_Florian_Modulated_STDP.pdf>`_.
     """
 
