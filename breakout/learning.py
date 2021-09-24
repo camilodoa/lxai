@@ -201,7 +201,6 @@ class HMSTDP(LearningRule):
         # Reshape pre- and post-synaptic spikes.
         source_s = self.source.s.view(batch_size, -1).float()
         target_s = self.target.s.view(batch_size, -1).float()
-
         # Parse keyword arguments.
         reward = kwargs["reward"]
         a_plus = torch.tensor(kwargs.get("a_plus", 1.0))
