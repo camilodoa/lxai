@@ -207,6 +207,8 @@ def play_episode(env: gym.Env,
         # Update the state according to action a
         s, r, done, info = env.step(a)
 
+        r = clip_reward(r)
+
         # Tensor shape configuration
         if FLAGS.update_rule == 'MSTDP' or FLAGS.update_rule == "HMSTDP":
             s = s.flatten()
@@ -215,10 +217,7 @@ def play_episode(env: gym.Env,
 
         # Run the agent for time t on state s with reward r
         inputs = {k: s.repeat(agent.sqn.time, *s_shape) for k in agent.sqn.inputs}
-        agent.sqn.run(inputs=inputs, reward=r,
-                      # a_plus=a_plus, a_minus=a_minus,
-                      # tc_plus=tau_plus, tc_minus=tau_minus
-                      )
+        agent.sqn.run(inputs=inputs, reward=r)
 
         # Update output spikes
         if agent.sqn.output is not None:
@@ -244,6 +243,14 @@ def get_env_dim(env: gym.Env) -> Tuple[int, int]:
 
     return input_dim, output_dim
 
+def clip_reward(reward):
+    """Clip reward so that it's in [-1, 1]
+    """
+    if reward < -1:
+        reward = -1
+    elif reward > 1:
+        reward = 1
+    return reward
 
 def main(save: bool = True, plot: bool = False) -> None:
     """Main
@@ -265,7 +272,7 @@ def main(save: bool = True, plot: bool = False) -> None:
             if i % 100 == 0:
                 average_rewards.append(mean(q))
 
-        name = "SQN-{}-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
+        name = "SQN-{}-{}-{}-{}-reward_clamping".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
 
         if plot:
             fig, ax = plt.subplots()

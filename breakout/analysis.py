@@ -120,7 +120,9 @@ if __name__ == '__main__':
         "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_1.fli",
         "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_2.fli",
         "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping.fli",
-        "DQN-cnn-BreakoutDeterministic-v4-10000-0.99-reward_clamping.fli"
+        "DQN-cnn-BreakoutDeterministic-v4-10000-0.99-reward_clamping.fli",
+        "SQN-HMSTDP-BreakoutDeterministic-v4-8000-0.01.fli",
+        "SQN-HMSTDP-BreakoutDeterministic-v4-8000-0.01-reward_clamping.fli"
     ]
 
     compare(run_100_MSTDP)
