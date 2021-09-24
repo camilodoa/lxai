@@ -3,6 +3,7 @@ from typing import Union, Optional, Sequence
 
 import torch
 import numpy as np
+from timeconstants.Tau import Tau
 
 from bindsnet.network.topology import (
     AbstractConnection,
@@ -47,7 +48,6 @@ class LearningRule(ABC):
 
         # Learning rate(s).
 
-        # TODO: Initialize nu as a matrix of shape connection.w
         # It can be random at first but accepting configurations and saving will be necessary in the future
         if nu is None:
             nu = [0.0, 0.0]
@@ -163,8 +163,6 @@ class HMSTDP(LearningRule):
             **kwargs
         )
 
-        # TODO: Set nu here again to the random matrix of size connection.x (in a certain range)
-
         if isinstance(connection, (Connection, LocalConnection)):
             self.update = self._connection_update
         elif isinstance(connection, Conv2dConnection):
@@ -174,13 +172,14 @@ class HMSTDP(LearningRule):
                 "This learning rule is not supported for this Connection type."
             )
 
-        self.tc_plus = torch.tensor(kwargs.get("tc_plus", 20.0))
-        self.tc_minus = torch.tensor(kwargs.get("tc_minus", 20.0))
+        self.tau = Tau()
+        self.tc_plus = torch.tensor(kwargs.get("tc_plus", self.tau.sample(self.connection.source.n)))
+        self.tc_minus = torch.tensor(kwargs.get("tc_minus", self.tau.sample(self.connection.target.n)))
 
     def _connection_update(self, **kwargs) -> None:
         # language=rst
         """
-        MSTDP learning rule for ``Connection`` subclass of ``AbstractConnection`` class.
+        HMSTDP learning rule for ``Connection`` subclass of ``AbstractConnection`` class.
 
         Keyword arguments:
 
@@ -210,7 +209,6 @@ class HMSTDP(LearningRule):
 
         # Compute weight update based on the eligibility value of the past timestep.
         update = reward * self.eligibility
-        # TODO: rewrite this to be self.nu
         self.connection.w += self.nu[0] * self.reduction(update, dim=0)
 
         # Update P^+ and P^- values.
@@ -254,7 +252,6 @@ class HMSTDP(LearningRule):
 
         # Compute weight update based on the eligibility value of the past timestep.
         update = reward * self.eligibility
-        #TODO: do that here too
         self.connection.w += self.nu[0] * torch.sum(update, dim=0)
 
         out_channels, _, kernel_height, kernel_width = self.connection.w.size()

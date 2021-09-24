@@ -1,7 +1,7 @@
 """
 SQN algorithm to solve CartPole-v0
 
-Uniform SQN implementation
+Heterogeneous SQN implementation
 
 @author: camilodoa
 """
@@ -12,7 +12,8 @@ from bindsnet.network.nodes import Input, LIFNodes
 from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.nodes import AbstractInput
-from bindsnet.learning import PostPre, WeightDependentPostPre, Hebbian, MSTDP, MSTDPET, Rmax
+from bindsnet.learning import PostPre, WeightDependentPostPre, Hebbian, MSTDP, MSTDPET
+from learning import HMSTDP
 import matplotlib.pyplot as plt
 import gym
 from bindsnet.environment import GymEnvironment
@@ -37,7 +38,7 @@ parser.add_argument("--hidden-dim",
                     help="Hidden dimension")
 parser.add_argument("--update-rule",
                     type=str,
-                    default="MSTDP",
+                    default="HMSTDP",
                     help="Learning rule used to update weights")
 parser.add_argument("--gamma",
                     type=float,
@@ -52,41 +53,8 @@ rules = {
     "Hebbian": Hebbian,
     "MSTDP": MSTDP,
     "MSTDPET": MSTDPET,
-    "Rmax": Rmax  # Didn't work with current configurations
+    "HMSTDP": HMSTDP
 }
-
-
-# # Florian 2007 parameters
-# dt = 1.0  # ms
-#
-# # LIF neuron (Section 4.1)
-# rest_lif = -70.0  # mV
-# thresh_lif = -54.0  # mV
-# reset_lif = rest_lif
-# tau_lif = 20.0  # ms
-#
-# refrac_lif = 0.0  # ms
-#
-# # Learning rules (Section 4.1)
-# tau_plus = 20.0  # ms
-# tau_minus = 20.0  # ms
-# tau_z = 25.0  # ms
-# a_plus = 1.0
-# a_minus = -1.0
-#
-# # Learning rules (Section 4.3)
-# gamma_mstdp = FLAGS.gamma  # mV, this was the parameter that really affected network performance, according to Florian
-# gamma_mstdpet = 0.25  # mV
-#
-# # Network (Section 4.3)
-# n_in = 2
-# n_hidden = 20
-# n_out = 1
-# w_min_1 = -10.0  # mV
-# w_max_1 = 10.0  # mV
-# w_min_2 = 0.0  # mV
-# w_max_2 = 10.0  # mV
-
 
 class SQN(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
@@ -104,20 +72,14 @@ class SQN(object):
         self.time = int(self.network.dt)
 
         # To solve tensor formatting issues
-        if FLAGS.update_rule == 'MSTDP':
+        if FLAGS.update_rule == 'MSTDP' or FLAGS.update_rule == "HMSTDP":
             self.input = Input(n=input_dim, traces=True)
         else:
             self.input = Input(n=input_dim, shape=shape, traces=True)
 
-        self.hidden = LIFNodes(n=hidden_dim, traces=True,
-                               # refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
-                               # reset=reset_lif, decay=tau_lif
-                               )
+        self.hidden = LIFNodes(n=hidden_dim, traces=True)
 
-        self.output = LIFNodes(n=output_dim, traces=True,
-                               # refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
-                               # reset=reset_lif, decay=tau_lif
-                               )
+        self.output = LIFNodes(n=output_dim, traces=True)
 
         # First connection
         self.connection_input_hidden = Connection(
@@ -203,7 +165,6 @@ class Agent(object):
             int: action index
         """
         scores = self.get_Q()
-        print(scores)
         probabilities = torch.softmax(scores, dim=0)
         return torch.multinomial(probabilities, num_samples=1).item()
 
@@ -220,7 +181,6 @@ class Agent(object):
         Returns:
             torch.Tensor: 2-D Tensor of shape (n, output_dim)
         """
-        # print(self.sqn.spike_record["Output"])
         return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
 
@@ -241,14 +201,14 @@ def play_episode(env: gym.Env,
     total_reward = 0
 
     while not done:
-        # env.render()
+        env.render()
         # Select an action
         a = agent.get_action()
         # Update the state according to action a
         s, r, done, info = env.step(a)
 
         # Tensor shape configuration
-        if FLAGS.update_rule == 'MSTDP':
+        if FLAGS.update_rule == 'MSTDP' or FLAGS.update_rule == "HMSTDP":
             s = s.flatten()
 
         s_shape = [1] * len(s.shape[1:])
@@ -323,4 +283,4 @@ def main(save: bool = True, plot: bool = False) -> None:
 
 
 if __name__ == '__main__':
-    main(save=False, plot=True)
+    main(save=True, plot=True)
