@@ -1,8 +1,10 @@
-from abc import ABC
+"""
+Heterogeneous Modulated Spike Timing Dependent Plasticity learning rule, configured for bindsnet
+"""
+
 from typing import Union, Optional, Sequence
 
 import torch
-import numpy as np
 from timeconstants.Tau import Tau
 
 from bindsnet.network.topology import (
@@ -12,121 +14,12 @@ from bindsnet.network.topology import (
     LocalConnection,
 )
 from bindsnet.utils import im2col_indices
-
-
-class LearningRule(ABC):
-    # language=rst
-    """
-    Abstract base class for learning rules.
-    """
-
-    def __init__(
-        self,
-        connection: AbstractConnection,
-        nu: Optional[Union[float, Sequence[float]]] = None,
-        reduction: Optional[callable] = None,
-        weight_decay: float = 0.0,
-        **kwargs
-    ) -> None:
-        # language=rst
-        """
-        Abstract constructor for the ``LearningRule`` object.
-
-        :param connection: An ``AbstractConnection`` object.
-        :param nu: Single or pair of learning rates for pre- and post-synaptic events.
-        :param reduction: Method for reducing parameter updates along the batch
-            dimension.
-        :param weight_decay: Constant multiple to decay weights by on each iteration.
-        """
-        # Connection parameters.
-        self.connection = connection
-        self.source = connection.source
-        self.target = connection.target
-
-        self.wmin = connection.wmin
-        self.wmax = connection.wmax
-
-        # Learning rate(s).
-
-        # It can be random at first but accepting configurations and saving will be necessary in the future
-        if nu is None:
-            nu = [0.0, 0.0]
-        elif isinstance(nu, float) or isinstance(nu, int):
-            nu = [nu, nu]
-
-        self.nu = nu
-
-        # Parameter update reduction across minibatch dimension.
-        if reduction is None:
-            reduction = torch.mean
-
-        self.reduction = reduction
-
-        # Weight decay.
-        self.weight_decay = weight_decay
-
-    def update(self) -> None:
-        # language=rst
-        """
-        Abstract method for a learning rule update.
-        """
-        # Implement weight decay.
-        if self.weight_decay:
-            self.connection.w -= self.weight_decay * self.connection.w
-
-        # Bound weights.
-        if (
-            self.connection.wmin != -np.inf or self.connection.wmax != np.inf
-        ) and not isinstance(self, NoOp):
-            self.connection.w.clamp_(self.connection.wmin, self.connection.wmax)
-
-
-class NoOp(LearningRule):
-    # language=rst
-    """
-    Learning rule with no effect.
-    """
-
-    def __init__(
-        self,
-        connection: AbstractConnection,
-        nu: Optional[Union[float, Sequence[float]]] = None,
-        reduction: Optional[callable] = None,
-        weight_decay: float = 0.0,
-        **kwargs
-    ) -> None:
-        # language=rst
-        """
-        Abstract constructor for the ``LearningRule`` object.
-
-        :param connection: An ``AbstractConnection`` object.
-        :param nu: Single or pair of learning rates for pre- and post-synaptic events.
-        :param reduction: Method for reducing parameter updates along the batch
-            dimension.
-        :param weight_decay: Constant multiple to decay weights by on each iteration.
-        """
-        super().__init__(
-            connection=connection,
-            nu=nu,
-            reduction=reduction,
-            weight_decay=weight_decay,
-            **kwargs
-        )
-
-    def update(self, **kwargs) -> None:
-        # language=rst
-        """
-        Abstract method for a learning rule update.
-        """
-        super().update()
-
-
-
+from bindsnet.learning import LearningRule
 
 class HMSTDP(LearningRule):
     # language=rst
     """
-    Heterogeneous Reward-modulated STDP. Built upon the MSTDP algorithm from `(Florian 2007)
+    Heterogeneous Reward-modulated STDP. Built on the MSTDP algorithm from `(Florian 2007)
     <https://florian.io/papers/2007_Florian_Modulated_STDP.pdf>`_.
     """
 
@@ -152,8 +45,8 @@ class HMSTDP(LearningRule):
 
         Keyword arguments:
 
-        :param tc_plus: Time constant for pre-synaptic firing trace.
-        :param tc_minus: Time constant for post-synaptic firing trace.
+        :param tc_plus: Array of time constants for pre-synaptic firing trace. Same size as the connection source.
+        :param tc_minus: Time constant for post-synaptic firing trace. Same size as the connection target.
         """
         super().__init__(
             connection=connection,

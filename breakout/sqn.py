@@ -13,6 +13,8 @@ from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.nodes import AbstractInput
 from bindsnet.learning import PostPre, WeightDependentPostPre, Hebbian, MSTDP, MSTDPET
+
+from timeconstants.Tau import Tau
 from learning import HMSTDP
 import matplotlib.pyplot as plt
 import gym
@@ -21,7 +23,9 @@ from typing import Tuple
 from collections import deque
 from statistics import mean
 from torch import Tensor
+from torchvision.utils import make_grid
 from analysis import save_list
+from bindsnet.analysis.plotting import plot_spikes
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--env",
@@ -34,7 +38,7 @@ parser.add_argument("--n-episode",
                     help="Number of epsidoes to run")
 parser.add_argument("--hidden-dim",
                     type=int,
-                    default=200,
+                    default=1000,
                     help="Hidden dimension")
 parser.add_argument("--update-rule",
                     type=str,
@@ -56,6 +60,8 @@ rules = {
     "HMSTDP": HMSTDP
 }
 
+s_im, s_ax = None, None
+
 class SQN(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
         """DQN Network
@@ -71,19 +77,30 @@ class SQN(object):
         self.learning_rule = rules.get(FLAGS.update_rule) if rules.get(FLAGS.update_rule) is not None else PostPre
         self.time = int(self.network.dt)
 
+        tau = Tau()
         # To solve tensor formatting issues
         if FLAGS.update_rule == 'MSTDP' or FLAGS.update_rule == "HMSTDP":
             self.input = Input(n=input_dim, traces=True)
         else:
             self.input = Input(n=input_dim, shape=shape, traces=True)
 
-        self.hidden = LIFNodes(n=hidden_dim, traces=True)
-
-        self.output = LIFNodes(n=output_dim, traces=True)
+        # Heterogeneous LIFNodes
+        self.hidden = LIFNodes(n=hidden_dim, traces=True, tc_decay=tau.sample(hidden_dim))
+        self.output = LIFNodes(n=output_dim, traces=True, tc_decay=tau.sample(output_dim))
 
         # First connection
         self.connection_input_hidden = Connection(
             source=self.input,
+            target=self.hidden,
+            update_rule=self.learning_rule,
+            wmin=0,
+            wmax=1,
+            nu=FLAGS.gamma
+        )
+
+        # Hidden recurrent connection
+        self.connection_hidden_hidden = Connection(
+            source=self.hidden,
             target=self.hidden,
             update_rule=self.learning_rule,
             wmin=0,
@@ -96,9 +113,8 @@ class SQN(object):
             source=self.hidden,
             target=self.output,
             update_rule=self.learning_rule,
-            wmin=-1,
+            wmin=0,
             wmax=1,
-            # norm=0.5 * self.hidden.n,
             nu=FLAGS.gamma
         )
 
@@ -118,6 +134,11 @@ class SQN(object):
             target="Hidden"
         )
         self.network.add_connection(
+            connection=self.connection_hidden_hidden,
+            source="Hidden",
+            target="Hidden"
+        )
+        self.network.add_connection(
             connection=self.connection_hidden_output,
             source="Hidden",
             target="Output"
@@ -133,6 +154,14 @@ class SQN(object):
         self.network.add_monitor(
             Monitor(self.output, ["s"], time=self.time),
             name="output_monitor"
+        )
+        self.network.add_monitor(
+            Monitor(self.hidden, ["s"], time=self.time),
+            name="hidden_monitor"
+        )
+        self.network.add_monitor(
+            Monitor(self.input, ["s"], time=self.time),
+            name="input_monitor"
         )
 
         self.spike_record = {
@@ -185,8 +214,7 @@ class Agent(object):
 
 
 def play_episode(env: gym.Env,
-                 agent: Agent,
-                 ) -> int:
+                 agent: Agent) -> int:
     """Play an epsiode and train
     Args:
         env (gym.Env): gym environment (CartPole-v0)
@@ -195,7 +223,7 @@ def play_episode(env: gym.Env,
         int: reward earned in this episode
     """
     env.reset()
-    agent.sqn.network.reset_state_variables()
+    # agent.sqn.network.reset_state_variables()
 
     done = False
     total_reward = 0
@@ -227,8 +255,15 @@ def play_episode(env: gym.Env,
 
         total_reward += r
 
-    return total_reward
+        global s_im
+        global s_ax
+        s_im, s_ax = plot_spikes({
+            "input": agent.sqn.network.monitors["input_monitor"].get("s"),
+            "hidden": agent.sqn.network.monitors["hidden_monitor"].get("s"),
+            "output": agent.sqn.network.monitors["output_monitor"].get("s")
+        }, ims=s_im, axes=s_ax)
 
+    return total_reward
 
 def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     """Returns input_dim & output_dim
