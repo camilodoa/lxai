@@ -7,8 +7,9 @@ Heterogeneous SQN implementation
 """
 import argparse
 import torch
+import functools
 from bindsnet.network import Network
-from bindsnet.network.nodes import Input, LIFNodes
+from bindsnet.network.nodes import Input, LIFNodes, AdaptiveLIFNodes
 from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.nodes import AbstractInput
@@ -26,6 +27,7 @@ from torch import Tensor
 from torchvision.utils import make_grid
 from analysis import save_list
 from bindsnet.analysis.plotting import plot_spikes
+import numpy as np
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--env",
@@ -85,8 +87,8 @@ class SQN(object):
             self.input = Input(n=input_dim, shape=shape, traces=True)
 
         # Heterogeneous LIFNodes
-        self.hidden = LIFNodes(n=hidden_dim, traces=True, tc_decay=tau.sample(hidden_dim))
-        self.output = LIFNodes(n=output_dim, traces=True, tc_decay=tau.sample(output_dim))
+        self.hidden = AdaptiveLIFNodes(n=hidden_dim, traces=True, tc_decay=tau.sample(hidden_dim))
+        self.output = AdaptiveLIFNodes(n=output_dim, traces=True, tc_decay=tau.sample(output_dim))
 
         # First connection
         self.connection_input_hidden = Connection(
@@ -187,6 +189,8 @@ class Agent(object):
         self.sqn = SQN(input_dim, shape, output_dim, hidden_dim)
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.output_memory_length = 3
+        self.output_average = deque(maxlen=self.output_memory_length)
 
     def get_action(self) -> int:
         """Returns an action
@@ -194,23 +198,32 @@ class Agent(object):
             int: action index
         """
         scores = self.get_Q()
-        probabilities = torch.softmax(scores, dim=0)
-        return torch.multinomial(probabilities, num_samples=1).item()
+        # probabilities = torch.flatten(torch.softmax(scores, dim=0))
+        # print(probabilities)
+        # return torch.multinomial(probabilities, num_samples=1).item()
 
+        print(torch.flatten(scores))
         _, argmax = torch.max(torch.flatten(scores), dim=0)
-        # print(torch.flatten(scores), argmax.item())
 
-        # if np.random.rand() < 0.2:
-        #     return np.random.choice(self.output_dim)
-        # else:
-        return argmax.item()
+        if np.random.rand() < 0.2:
+            return np.random.choice(self.output_dim)
+        else:
+            return argmax.item()
 
     def get_Q(self) -> Tensor:
         """Returns `Q-value` based on internal state
         Returns:
             torch.Tensor: 2-D Tensor of shape (n, output_dim)
         """
-        return torch.sum(self.sqn.spike_record["Output"], dim=0)
+        if len(list(self.output_average)) <= 1:
+            return torch.zeros([1, 4])
+
+        output_average_list = torch.Tensor(list(self.output_average))
+        # print(torch.nn.functional.conv2d(output_average_list, ))
+        mean = functools.reduce(lambda a, b: a + b, output_average_list) / self.output_memory_length
+
+        return mean
+        # return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
 
 def play_episode(env: gym.Env,
@@ -249,9 +262,9 @@ def play_episode(env: gym.Env,
 
         # Update output spikes
         if agent.sqn.output is not None:
-            agent.sqn.spike_record["Output"] = (
-                agent.sqn.network.monitors["output_monitor"].get("s").float()
-            )
+            output = agent.sqn.network.monitors["output_monitor"].get("s").float()
+            agent.sqn.spike_record["Output"] = output
+            agent.output_average.append(output.tolist())
 
         total_reward += r
 
