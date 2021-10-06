@@ -1,7 +1,7 @@
 """
 SQN algorithm to solve CartPole-v0
 
-Uniform SQN implementation
+Heterogeneous SQN implementation
 
 @author: camilodoa
 """
@@ -12,7 +12,10 @@ from bindsnet.network.nodes import Input, LIFNodes
 from bindsnet.network.topology import Connection
 from bindsnet.network.monitors import Monitor
 from bindsnet.network.nodes import AbstractInput
-from bindsnet.learning import PostPre, WeightDependentPostPre, Hebbian, MSTDP, MSTDPET, Rmax
+from bindsnet.learning import PostPre, WeightDependentPostPre, Hebbian, MSTDP, MSTDPET
+
+from timeconstants.Tau import Tau
+from learning import HMSTDP
 import matplotlib.pyplot as plt
 import gym
 from bindsnet.environment import GymEnvironment
@@ -20,7 +23,9 @@ from typing import Tuple
 from collections import deque
 from statistics import mean
 from torch import Tensor
+from torchvision.utils import make_grid
 from analysis import save_list
+from bindsnet.analysis.plotting import plot_spikes
 
 parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument("--env",
@@ -33,11 +38,11 @@ parser.add_argument("--n-episode",
                     help="Number of epsidoes to run")
 parser.add_argument("--hidden-dim",
                     type=int,
-                    default=200,
+                    default=1000,
                     help="Hidden dimension")
 parser.add_argument("--update-rule",
                     type=str,
-                    default="MSTDP",
+                    default="HMSTDP",
                     help="Learning rule used to update weights")
 parser.add_argument("--gamma",
                     type=float,
@@ -52,41 +57,10 @@ rules = {
     "Hebbian": Hebbian,
     "MSTDP": MSTDP,
     "MSTDPET": MSTDPET,
-    "Rmax": Rmax  # Didn't work with current configurations
+    "HMSTDP": HMSTDP
 }
 
-
-# # Florian 2007 parameters
-# dt = 1.0  # ms
-#
-# # LIF neuron (Section 4.1)
-# rest_lif = -70.0  # mV
-# thresh_lif = -54.0  # mV
-# reset_lif = rest_lif
-# tau_lif = 20.0  # ms
-#
-# refrac_lif = 0.0  # ms
-#
-# # Learning rules (Section 4.1)
-# tau_plus = 20.0  # ms
-# tau_minus = 20.0  # ms
-# tau_z = 25.0  # ms
-# a_plus = 1.0
-# a_minus = -1.0
-#
-# # Learning rules (Section 4.3)
-# gamma_mstdp = FLAGS.gamma  # mV, this was the parameter that really affected network performance, according to Florian
-# gamma_mstdpet = 0.25  # mV
-#
-# # Network (Section 4.3)
-# n_in = 2
-# n_hidden = 20
-# n_out = 1
-# w_min_1 = -10.0  # mV
-# w_max_1 = 10.0  # mV
-# w_min_2 = 0.0  # mV
-# w_max_2 = 10.0  # mV
-
+s_im, s_ax = None, None
 
 class SQN(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
@@ -103,21 +77,16 @@ class SQN(object):
         self.learning_rule = rules.get(FLAGS.update_rule) if rules.get(FLAGS.update_rule) is not None else PostPre
         self.time = int(self.network.dt)
 
+        tau = Tau()
         # To solve tensor formatting issues
-        if FLAGS.update_rule == 'MSTDP':
+        if FLAGS.update_rule == 'MSTDP' or FLAGS.update_rule == "HMSTDP":
             self.input = Input(n=input_dim, traces=True)
         else:
             self.input = Input(n=input_dim, shape=shape, traces=True)
 
-        self.hidden = LIFNodes(n=hidden_dim, traces=True,
-                               # refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
-                               # reset=reset_lif, decay=tau_lif
-                               )
-
-        self.output = LIFNodes(n=output_dim, traces=True,
-                               # refrac=refrac_lif, thresh=thresh_lif, rest=rest_lif,
-                               # reset=reset_lif, decay=tau_lif
-                               )
+        # Heterogeneous LIFNodes
+        self.hidden = LIFNodes(n=hidden_dim, traces=True, tc_decay=tau.sample(hidden_dim))
+        self.output = LIFNodes(n=output_dim, traces=True, tc_decay=tau.sample(output_dim))
 
         # First connection
         self.connection_input_hidden = Connection(
@@ -127,42 +96,27 @@ class SQN(object):
             wmin=0,
             wmax=1,
             nu=FLAGS.gamma
-            # wmin=w_min_1,
-            # wmax=w_max_1,
         )
 
-        # Recurrent inhibitory connection in hidden layer
-        # self.connection_hidden_hidden = Connection(
-        #     source=self.hidden,
-        #     target=self.hidden,
-        #     update_rule=self.learning_rule,
-        #     wmin=-1,
-        #     wmax=0,
-        #     nu=FLAGS.gamma
-        # )
+        # Hidden recurrent connection
+        self.connection_hidden_hidden = Connection(
+            source=self.hidden,
+            target=self.hidden,
+            update_rule=self.learning_rule,
+            wmin=0,
+            wmax=1,
+            nu=FLAGS.gamma
+        )
 
         # Hidden layer to Output
         self.connection_hidden_output = Connection(
             source=self.hidden,
             target=self.output,
             update_rule=self.learning_rule,
-            # wmin=w_min_2,
-            # wmax=w_max_2,
-            wmin=-1,
+            wmin=0,
             wmax=1,
-            # norm=0.5 * self.hidden.n,
             nu=FLAGS.gamma
         )
-
-        # Output recurrent connection
-        # self.connection_output_output = Connection(
-        #     source=self.output,
-        #     target=self.output,
-        #     update_rule=self.learning_rule,
-        #     wmin=w_min_1,
-        #     wmax=w_max_1,
-        #     nu=gamma_mstdp
-        # )
 
         self.network.add_layer(
             layer=self.input, name="Input"
@@ -179,21 +133,16 @@ class SQN(object):
             source="Input",
             target="Hidden"
         )
-        # self.network.add_connection(
-        #     connection=self.connection_hidden_hidden,
-        #     source="Hidden",
-        #     target="Hidden",
-        # )
+        self.network.add_connection(
+            connection=self.connection_hidden_hidden,
+            source="Hidden",
+            target="Hidden"
+        )
         self.network.add_connection(
             connection=self.connection_hidden_output,
             source="Hidden",
             target="Output"
         )
-        # self.network.add_connection(
-        #     connection=self.connection_output_output,
-        #     source="Output",
-        #     target="Output"
-        # )
 
         self.inputs = [
             name
@@ -205,6 +154,14 @@ class SQN(object):
         self.network.add_monitor(
             Monitor(self.output, ["s"], time=self.time),
             name="output_monitor"
+        )
+        self.network.add_monitor(
+            Monitor(self.hidden, ["s"], time=self.time),
+            name="hidden_monitor"
+        )
+        self.network.add_monitor(
+            Monitor(self.input, ["s"], time=self.time),
+            name="input_monitor"
         )
 
         self.spike_record = {
@@ -253,13 +210,11 @@ class Agent(object):
         Returns:
             torch.Tensor: 2-D Tensor of shape (n, output_dim)
         """
-        # print(self.sqn.spike_record["Output"])
         return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
 
 def play_episode(env: gym.Env,
-                 agent: Agent,
-                 ) -> int:
+                 agent: Agent) -> int:
     """Play an epsiode and train
     Args:
         env (gym.Env): gym environment (CartPole-v0)
@@ -268,30 +223,29 @@ def play_episode(env: gym.Env,
         int: reward earned in this episode
     """
     env.reset()
-    agent.sqn.network.reset_state_variables()
+    # agent.sqn.network.reset_state_variables()
 
     done = False
     total_reward = 0
 
     while not done:
-        # env.render()
+        env.render()
         # Select an action
         a = agent.get_action()
         # Update the state according to action a
         s, r, done, info = env.step(a)
 
+        r = clip_reward(r)
+
         # Tensor shape configuration
-        if FLAGS.update_rule == 'MSTDP':
+        if FLAGS.update_rule == 'MSTDP' or FLAGS.update_rule == "HMSTDP":
             s = s.flatten()
 
         s_shape = [1] * len(s.shape[1:])
 
         # Run the agent for time t on state s with reward r
         inputs = {k: s.repeat(agent.sqn.time, *s_shape) for k in agent.sqn.inputs}
-        agent.sqn.run(inputs=inputs, reward=r,
-                      # a_plus=a_plus, a_minus=a_minus,
-                      # tc_plus=tau_plus, tc_minus=tau_minus
-                      )
+        agent.sqn.run(inputs=inputs, reward=r)
 
         # Update output spikes
         if agent.sqn.output is not None:
@@ -301,8 +255,15 @@ def play_episode(env: gym.Env,
 
         total_reward += r
 
-    return total_reward
+        global s_im
+        global s_ax
+        s_im, s_ax = plot_spikes({
+            "input": agent.sqn.network.monitors["input_monitor"].get("s"),
+            "hidden": agent.sqn.network.monitors["hidden_monitor"].get("s"),
+            "output": agent.sqn.network.monitors["output_monitor"].get("s")
+        }, ims=s_im, axes=s_ax)
 
+    return total_reward
 
 def get_env_dim(env: gym.Env) -> Tuple[int, int]:
     """Returns input_dim & output_dim
@@ -317,6 +278,14 @@ def get_env_dim(env: gym.Env) -> Tuple[int, int]:
 
     return input_dim, output_dim
 
+def clip_reward(reward):
+    """Clip reward so that it's in [-1, 1]
+    """
+    if reward < -1:
+        reward = -1
+    elif reward > 1:
+        reward = 1
+    return reward
 
 def main(save: bool = True, plot: bool = False) -> None:
     """Main
@@ -338,8 +307,7 @@ def main(save: bool = True, plot: bool = False) -> None:
             if i % 100 == 0:
                 average_rewards.append(mean(q))
 
-        name = "SQN-slidingwindow-{}-{}-{}-{}".format(FLAGS.update_rule.replace(" ", ""),
-                                                                               FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
+        name = "SQN-{}-{}-{}-{}-reward_clamping".format(FLAGS.update_rule.replace(" ", ""), FLAGS.env, FLAGS.n_episode, FLAGS.gamma)
 
         if plot:
             fig, ax = plt.subplots()
