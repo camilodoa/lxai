@@ -78,7 +78,7 @@ def explore_actions(name: str = "BreakoutDeterministic-v4") -> [str]:
 
 
 if __name__ == '__main__':
-    ### Baseline
+    # Baseline
     pre_06_22_2021 = "06-22-2021-update/"
     # Initial unrefined run with a variety of learning rules
     run_10000_preliminary_results = [
@@ -115,14 +115,11 @@ if __name__ == '__main__':
 
     # CNN vs linear
     run_100_MSTDP = [
-        # "DQN-cnn-BreakoutDeterministic-v4-10000-0.99.fli",
         pre_06_22_2021 + "DQN-linear-slidingwindow-BreakoutDeterministic-v4-8000-0.99.fli",
         "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_1.fli",
         "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping_2.fli",
         "DQN-cnn-BreakoutDeterministic-v4-2000-0.99-reward_clamping.fli",
         "DQN-cnn-BreakoutDeterministic-v4-10000-0.99-reward_clamping.fli",
-        "SQN-HMSTDP-BreakoutDeterministic-v4-8000-0.01.fli",
-        "SQN-HMSTDP-BreakoutDeterministic-v4-8000-0.01-reward_clamping.fli"
     ]
 
     compare(run_100_MSTDP)

@@ -1,3 +1,8 @@
+"""
+Class used to sample the distribution of membrane time constants in the brain
+author: @camilodoa
+"""
+
 import pandas as pd
 import numpy as np
 import torch
