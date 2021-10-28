@@ -3,7 +3,7 @@ SQN algorithm to solve CartPole-v0
 
 Heterogeneous SQN implementation
 
-@author: camilodoa
+author: @camilodoa
 """
 import argparse
 import torch
@@ -23,7 +23,6 @@ from typing import Tuple
 from collections import deque
 from statistics import mean
 from torch import Tensor
-from torchvision.utils import make_grid
 from analysis import save_list
 from bindsnet.analysis.plotting import plot_spikes
 
@@ -64,17 +63,11 @@ s_im, s_ax = None, None
 
 class SQN(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
-        """DQN Network
-        Args:
-            input_dim (int): `state` dimension.
-                `state` is 2-D tensor of shape (n, input_dim)
-            output_dim (int): Number of actions.
-                Q_value is 2-D tensor of shape (n, output_dim)
-            hidden_dim (int): Hidden dimension in fc layer
+        """SQN Network
         """
         self.device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
         self.network = Network(dt=1.0)
-        self.learning_rule = rules.get(FLAGS.update_rule) if rules.get(FLAGS.update_rule) is not None else PostPre
+        self.learning_rule = rules.get(FLAGS.update_rule)
         self.time = int(self.network.dt)
 
         tau = Tau()
@@ -178,20 +171,13 @@ class SQN(object):
 class Agent(object):
     def __init__(self, input_dim: int, shape: [int], output_dim: int, hidden_dim: int) -> None:
         """Agent class that chooses an action and trains
-        Args:
-            input_dim (int): input dimension
-            shape ([int]): shape of input
-            output_dim (int): output dimension
-            hidden_dim (int): hidden dimension
         """
         self.sqn = SQN(input_dim, shape, output_dim, hidden_dim)
         self.input_dim = input_dim
         self.output_dim = output_dim
 
     def get_action(self) -> int:
-        """Returns an action
-        Returns:
-            int: action index
+        """Returns an action index
         """
         scores = self.get_Q()
         probabilities = torch.softmax(scores, dim=0)
@@ -206,24 +192,22 @@ class Agent(object):
         return argmax.item()
 
     def get_Q(self) -> Tensor:
-        """Returns `Q-value` based on internal state
-        Returns:
-            torch.Tensor: 2-D Tensor of shape (n, output_dim)
+        """Returns `Q-value` based on output layer's spikes
         """
         return torch.sum(self.sqn.spike_record["Output"], dim=0)
 
 
-def play_episode(env: gym.Env,
+def play_episode(env: GymEnvironment,
                  agent: Agent) -> int:
     """Play an epsiode and train
     Args:
         env (gym.Env): gym environment (CartPole-v0)
         agent (Agent): agent will train and get action
     Returns:
-        int: reward earned in this episode
+        int: reward
     """
     env.reset()
-    # agent.sqn.network.reset_state_variables()
+    agent.sqn.network.reset_state_variables()
 
     done = False
     total_reward = 0
