@@ -1,4 +1,5 @@
 appdirs==1.4.4
+cma
 atari-py==0.2.6
 attrs==20.3.0
 BindsNET @ git+https://github.com/BindsNET/bindsnet.git@ead55217e05ba4c6ef27f45ff5dc7d61b4abaa13
